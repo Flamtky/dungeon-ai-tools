@@ -46,8 +46,9 @@ link() {
     [[ "$(readlink "$path")" != "$target" ]] || return 0
     rm "$path"
   elif [[ -e "$path" ]]; then
-    mkdir -p "$backup"
-    mv "$path" "$backup/$(tr '/' '_' <<<"${path#/}")"
+    # Kept at the same path below the backup folder.
+    mkdir -p "$(dirname "$backup$path")"
+    mv "$path" "$backup$path"
   fi
   mkdir -p "$(dirname "$path")"
   ln -s "$target" "$path"
@@ -65,16 +66,18 @@ link_skill() {
 # dungeon_files <source>: links every file below <source> into the Dungeon checkout and keeps
 # it out of git there.
 dungeon_files() {
-  local source="$1" exclude file rel
+  local source="$1" exclude file rel pattern
   [[ -d "$source" ]] || return 0
   exclude="$(cd "$dungeon" && realpath "$(git rev-parse --git-path info/exclude)")"
   while IFS= read -r -d '' file; do
     rel="${file#"$source"/}"
     link "$dungeon/$rel" "$file"
-    if ! git -C "$dungeon" check-ignore -q -- "$rel"; then
-      [[ ! -s "$exclude" || -z "$(tail -c1 "$exclude")" ]] || echo >>"$exclude"
-      echo "/$rel" >>"$exclude"
-    fi
+    git -C "$dungeon" check-ignore -q -- "$rel" && continue
+    # Glob characters in the name are escaped; a pattern already listed is not added again.
+    pattern="/$(sed 's/[][*?\\]/\\&/g' <<<"$rel")"
+    grep -qxF -- "$pattern" "$exclude" 2>/dev/null && continue
+    [[ ! -s "$exclude" || -z "$(tail -c1 "$exclude")" ]] || echo >>"$exclude"
+    echo "$pattern" >>"$exclude"
   done < <(find "$source" -type f -print0)
 }
 
@@ -114,9 +117,12 @@ if [[ -n "$overlay" ]]; then
     [[ -d "$dir" ]] || continue
     dir="${dir%/}"
     name="$(basename "$dir")"
-    if [[ -d "$repo/skills/$name" ]]; then
+    # The shared skill's folder on this platform, as platform_skills picks it.
+    shared="$repo/skills/$name"
+    [[ ! -d "$shared-linux" ]] || shared="$shared-linux"
+    if [[ -d "$shared" ]]; then
       while IFS= read -r -d '' file; do
-        link "$repo/skills/$name/${file#"$dir"/}" "$file"
+        link "$shared/${file#"$dir"/}" "$file"
       done < <(find "$dir" -type f -print0)
     else
       link_skill "$name" "$dir"
