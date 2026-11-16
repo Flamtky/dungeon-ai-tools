@@ -1,6 +1,6 @@
 ---
 name: dungeon-pr-review
-description: Review workflow for pull requests in the Dungeon repo (Dungeon-CampusMinden/Dungeon): local review, optional Sol second pass, GitHub review draft in the user's style, posted only on request, re-reviews after updates. Use whenever the user requests a review of a Dungeon PR, e.g. "review PR 3255", "lokaler review von pr …", "guck dir den PR an", or attaches a PR reference and asks for findings.
+description: Review workflow for pull requests in the Dungeon repo (Dungeon-CampusMinden/Dungeon): local review, optional second pass by another model, GitHub review draft in the user's style, posted only on request, re-reviews after updates. Use whenever the user requests a review of a Dungeon PR, e.g. "review PR 3255", "lokaler review von pr …", "guck dir den PR an", or attaches a PR reference and asks for findings.
 ---
 
 # Dungeon PR review
@@ -18,23 +18,23 @@ git diff $BASE pr-<N>
 
 Read files at PR head with `git show pr-<N>:<path>` and at the base with `git show $BASE:<path>`. Never check the PR out in the user's working tree or worktree; the branch there may be renamed or in use.
 
-## 2. Start the Sol pass in the background
+## 2. Start the second pass in the background
 
-This step needs T3 Code with a Codex provider; without them, skip it and say in the report that the review had one pass. Run it right away through the T3 MCP (`delegate_task`), not the `codex` CLI, and do your own pass (step 3) while it works:
+A model of another provider reviews the PR alongside you. Take its provider, model, and effort from the model table in the user's instructions: the row for critical reviews. This step needs T3 Code and such a row; without either, skip it and say in the report that the review had one pass. Run it right away through the T3 MCP (`delegate_task`), not a CLI, and do your own pass (step 3) while it works:
 
 ```json
 {
-  "title": "PR <N> Sol-Review",
+  "title": "PR <N> second review",
   "role": "review",
   "mode": "async",
-  "clientRequestId": "pr<N>-sol-review-<round>",
-  "target": {"providerInstanceId": "codex", "model": "gpt-6.1-sol",
-             "options": {"reasoningEffort": "xhigh"}},
+  "clientRequestId": "pr<N>-second-review-<round>",
+  "target": {"providerInstanceId": "<provider>", "model": "<model>",
+             "options": {"<effort option>": "<effort>"}},
   "task": "<prompt>"
 }
 ```
 
-Keep the returned `taskId`. Its completion wakes this thread, so end the turn instead of polling; read the result with `task_status`. Each further round is a new `delegate_task` call with its own `clientRequestId`.
+`orchestrator_capabilities` names each provider's models and its effort option. Keep the returned `taskId`. Its completion wakes this thread, so end the turn instead of polling; read the result with `task_status`. Each further round is a new `delegate_task` call with its own `clientRequestId`.
 
 The prompt contains: PR number, base SHA and `pr-<N>` ref with the `git diff` / `git show` commands, the PR intent from its description, each of the user's points with the request to judge it (agree/disagree, why, cleaner alternative in this codebase, and whether the code already existed at `$BASE`), your own suspicions as a checklist, and the rules: read-only, only report findings verified in code, each with file:line, concrete failure scenario, and severity; skip style nits; answer in German, concisely.
 
@@ -48,7 +48,7 @@ The prompt contains: PR number, base SHA and `pr-<N>` ref with the `git diff` / 
 
 ## 4. Merge and report
 
-Verify each Sol finding in code yourself; drop what you cannot confirm, or label it unproven. Report in German:
+Verify each second-pass finding in code yourself; drop what you cannot confirm, or label it unproven. Report in German:
 
 - the answer to each user point (one short section each),
 - remaining findings as a table with P1–P3, pre-existing issues marked,

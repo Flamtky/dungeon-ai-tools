@@ -5,7 +5,7 @@ description: Merge workflow for Dependabot PRs in the Dungeon repo (Dungeon-Camp
 
 # Dungeon Dependabot merge
 
-Merge every open Dependabot PR. Bumps are expected to need no code change; the API check exists to catch the rare one that does. The request authorizes assigning, approving, `@dependabot` comments, and squash-merging these PRs. Dependabot owns its branches: changes to them go through `@dependabot` commands.
+Merge every open Dependabot PR. Bumps are expected to need no code change; the API check exists to catch the rare one that does. The request authorizes assigning, approving, closing and reopening, `@dependabot` comments, and squash-merging these PRs. Dependabot owns its branches: changes to them go through `@dependabot` commands.
 
 ## 1. Collect the batch
 
@@ -29,7 +29,14 @@ A PR is **critical** when a breaking or behaviour change from the notes hits cod
 
 CI is green when every check on the PR's head SHA succeeded or was skipped. Wait for running checks with `gh pr checks <n> --watch` as a background command and check the other PRs meanwhile.
 
-`master` requires checks that only `pull_request` runs satisfy; a manually dispatched workflow never counts. When the PR reports no checks, those runs did not start: comment `@dependabot rebase` (`@dependabot recreate` when Dependabot answers that the branch is up to date) and wait for the new head as in step 4. The push starts the PR checks.
+`master` requires checks that only `pull_request` runs satisfy; a manually dispatched workflow never counts. When the PR reports no checks, GitHub has removed its runs: once the API check has passed, close and reopen the PR, which starts the checks on the same head.
+
+```sh
+gh pr close <n>
+gh pr reopen <n>
+```
+
+`@dependabot rebase` is for conflicts (step 4): on a branch that is up to date it pushes nothing, so it starts no checks.
 
 A failed run: read `gh run view <id> --log-failed`. A failure caused by the bump makes the PR critical (step 2); a flaky infrastructure failure gets one `gh run rerun <id> --failed`.
 

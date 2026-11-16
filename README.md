@@ -53,12 +53,17 @@ contain the linked files; agents read them from the main checkout.
   `~/.local/bin` on `PATH`.
 - `dungeon-play` on Linux: `Xvfb`, `xdotool`, `ffmpeg`, the JDK Dungeon builds with, and
   `~/.local/bin` on `PATH`.
-- `dungeon-pr-review` and `dungeon-dependabot`: an authenticated `gh`. The review's second
-  pass needs T3 Code with a Codex provider and is skipped without them.
+- `dungeon-pr-review` and `dungeon-dependabot`: an authenticated `gh`.
 - `ready-check`, `ship`, `babysit`, `gh-stack`: an authenticated `gh`, for `gh-stack` with the
-  `gh stack` extension. `ready-check` and `ship` take their review models from your own agent
-  instructions, and otherwise from what is installed: another provider's model, or a subagent
-  of your own provider.
+  `gh stack` extension.
+
+## Models
+
+The skills name no models. They read them from the model table in your own agent instructions
+(`~/.codex/AGENTS.md`, `~/.claude/CLAUDE.md`): the review pair, the row for critical reviews, and
+the model for threads that `ship` launches on another machine. Without a table, `ready-check`
+and `ship` pick from what is installed (another provider's model, or a subagent of your own
+provider), and `dungeon-pr-review` skips its second pass, which also needs T3 Code.
 
 ## Private additions
 
