@@ -17,7 +17,7 @@ These PRs are the **batch**; under T3 Code, link each with `link_pull_request` a
 
 ## 2. API check, per PR
 
-Assign the PR to the user first (`gh pr edit <n> --add-assignee @me`): the user owns the merge and what follows. Then read the release notes and changelog in the PR body (`gh pr view <n> --json body`) for the whole version range; follow the linked changelog when the body is truncated. Then find where the repo touches the dependency:
+Skip a PR that is assigned to someone else and name it in the report. Assign any other to the user first (`gh pr edit <n> --add-assignee '@me'`): the user owns the merge and what follows. Then read the release notes and changelog in the PR body (`gh pr view <n> --json body`) for the whole version range; follow the linked changelog when the body is truncated. Then find where the repo touches the dependency:
 
 - Gradle library or plugin (`dependencies.gradle`, `build.gradle`): imports of its packages and calls into the changed APIs.
 - npm in `wizard/spec-generator`: a dependency only in `package-lock.json`, not in `package.json`, is transitive and needs no further check.

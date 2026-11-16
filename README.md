@@ -57,7 +57,8 @@ contain the linked files; agents read them from the main checkout.
   pass needs T3 Code with a Codex provider and is skipped without them.
 - `ready-check`, `ship`, `babysit`, `gh-stack`: an authenticated `gh`, for `gh-stack` with the
   `gh stack` extension. `ready-check` and `ship` take their review models from your own agent
-  instructions and fall back to one review by another model.
+  instructions, and otherwise from what is installed: another provider's model, or a subagent
+  of your own provider.
 
 ## Private additions
 

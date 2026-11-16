@@ -42,11 +42,13 @@ Done when every hunk belongs to exactly one unit: the units' line counts add up 
 
 ## 4. Minimal-diff pass
 
-Delegate a read-only review to each model of the review pair that the user's instructions name; where they name none, to one model other than your own. Use T3 `delegate_task` or the CLI (`codex exec`, `claude -p`). Give each the base, the diff command, the requirements, and your ledger. Their one question:
+Pick the **reviewers**: the review pair that the user's instructions name. Where they name none, look at what is installed (`codex --version`, `claude --version`, under T3 Code `orchestrator_capabilities`) and take one model of another provider; with your own provider alone, a fresh subagent on another of its models, or on your own model when it offers no other.
+
+Delegate a read-only review to each reviewer through T3 `delegate_task`, the CLI (`codex exec`, `claude -p`), or your own subagent tool. Give each the base, the diff command, the requirements, and your ledger. Their one question:
 
 > What can be removed or simplified while every requirement still holds? For each proposal, show the smaller alternative (exact deletion or code) and the lines saved. Contest any ledger verdict you disagree with.
 
-If quota or an outage blocks one of them, follow the quota rule in the user's instructions, or continue with the other reviewer where they have none. In a `ship` run, follow its quota rule instead.
+If quota or an outage blocks a reviewer, follow the quota rule in the user's instructions, or continue with the remaining one where they have none; with none left, pick again from what is installed. In a `ship` run, follow its quota rule instead.
 
 Check each proposal against the code yourself and mark it **accept** or **reject**, with a reason when you reject.
 
@@ -60,7 +62,7 @@ Show the user:
 - the ledger as a table: unit | +/− | requirement | verdict
 - the pipeline result from step 1
 - the fixed lists from step 3
-- accepted cuts with lines saved; rejected proposals in one line each
+- the models that reviewed, then the accepted cuts with lines saved; rejected proposals in one line each
 
 End the turn and wait for the user's decision. Apply the cuts they pick, rerun the pipeline from step 1 plus screenshots for visual changes, and show the new diff stat. Create the PR ready for review, or mark the draft ready, only after the user's explicit OK and with the pipeline green.
 

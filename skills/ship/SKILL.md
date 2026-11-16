@@ -11,7 +11,7 @@ The user invokes this skill to get a change merged. After step 1, run to the mer
 ## The order
 
 - **Goal**: issue, bug, feature, or spec.
-- **Location** (required): this machine or a linked one. If it is missing, ask before any other work.
+- **Location** (required): this machine or a linked one. If it is missing, ask before any other work. Without T3 Code it is always this machine.
 - **Optional**: reviewer, follow-ups after the merge.
 
 ## 1. Pin the order
@@ -22,7 +22,8 @@ Write the requirements and an acceptance list. Each acceptance item names someth
 
 - Unclear requirement: `grilling`, all questions in one round.
 - More than one PR: write a local spec with the PR cut, agree it with the user, then ship the PRs in order.
-- Other machine: launch a thread there in its own worktree, on the model the user's instructions name for complex implementation, without `delegatedFrom`. The brief is the order, the acceptance list, and absolute paths to the plans it needs. That thread continues at step 2.
+- Other machine: launch a thread there in its own worktree, on the model the user's instructions name for it (your own where they name none), without `delegatedFrom`. The brief is the order, the acceptance list, and absolute paths to the plans it needs. That thread continues at step 2.
+- Nothing can wake this thread (no T3 Code, no background command that re-invokes you): say in this round that the waits after step 8 need the user to resume the thread.
 
 Done when every requirement has an acceptance item and a way to check it, and every decision you can foresee is settled.
 
@@ -36,7 +37,7 @@ Run `diagnosing-bugs` under the conditions in the report. Done when the loop goe
 
 ## 4. Implement
 
-Commit each coherent unit, signed. Bugs in the touched area come along whatever their size. Everything else becomes a note in the report.
+Commit each coherent unit, signed where the user's setup requires it. Bugs in the touched area come along whatever their size. Everything else becomes a note in the report.
 
 ## 5. Verify
 
@@ -48,7 +49,7 @@ Done when each item has an observed result or sits on the test list with a reaso
 
 ## 6. Review
 
-Run the review pair that the user's instructions name; where they name none, one review by a model other than your own. Check every finding against the code, fix the real ones, and have substantial fixes reviewed again.
+Run a review by each reviewer, picked as in step 4 of `ready-check`. Check every finding against the code, fix the real ones, and have substantial fixes reviewed again.
 
 Done when a round brings no new real finding. After three rounds, hand the open findings to the user.
 
@@ -58,13 +59,13 @@ Run `ready-check`. Fix every bug it finds, apply the accepted cuts, and rerun th
 
 ## 8. Open the PR
 
-Fetch and compare the base. If it moved or a stacked parent merged, rebase with a backup ref first. Open the PR in the repository's style, assign the user (`@me`), attach screenshots, and link it.
+Fetch and compare the base. If it moved or a stacked parent merged, rebase with a backup ref first. Open the PR in the repository's style, assign the user (`@me`), attach screenshots, and under T3 Code link it to the thread.
 
 If the test list has entries, leave the PR as a draft, provide a test build and the list, and wait. Feedback returns to step 4. The user's OK continues below.
 
 Mark it ready, request exactly one reviewer (the named one, else the best fit from the history of the touched files, within the project's rules), and run `babysit` with the merge granted. More than one reviewer needs the user's word.
 
-After the merge, do the follow-ups from the order and unwatch the PR.
+After the merge, do the follow-ups from the order and, under T3 Code, unwatch the PR.
 
 ## Thread updates
 
@@ -82,7 +83,7 @@ Every decision goes into the update of its step: the options, your choice, the r
 
 After step 1, decide everything yourself, including design questions from reviews: take the option with the smallest diff that is easiest to reverse, and record it in the PR description and in the thread. Answer reviewers on the PR yourself. This replaces babysit's asking.
 
-If a reviewer of the pair has no quota, retry every 30 minutes with a one-off background command for up to five hours, the usual length of a limit window. Then run the review with the other one alone. Mention this only in the report in this thread, and leave it out of everything on GitHub.
+If a reviewer of the pair has no quota, retry every 30 minutes with a one-off background command for up to five hours, the usual length of a limit window. Then run the review with the remaining one alone or, with none left, pick again from what is installed. Mention this only in the report in this thread, and leave it out of everything on GitHub.
 
 Wait for the user only when you cannot continue: signing fails, access is missing, or data without a backup would be lost. Name what you need.
 

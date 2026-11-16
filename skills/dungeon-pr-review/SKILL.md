@@ -5,15 +5,15 @@ description: Review workflow for pull requests in the Dungeon repo (Dungeon-Camp
 
 # Dungeon PR review
 
-The review stays read-only until the user explicitly asks to post it. The user's own observations come first: answer each one, then add findings of your own.
+The review stays read-only until the user explicitly asks to post it; the one exception is the approval that ends a re-review with nothing left to block (step 7). The user's own observations come first: answer each one, then add findings of your own.
 
 ## 1. Load the PR without touching any checkout
 
 ```sh
 gh pr view <N> --json title,body,headRefName,baseRefName,headRefOid,files
-git fetch origin pull/<N>/head:pr-<N> master
+git fetch origin +pull/<N>/head:pr-<N> master
 BASE=$(git merge-base origin/master pr-<N>)
-git diff $BASE pr-<N> -- game/
+git diff $BASE pr-<N>
 ```
 
 Read files at PR head with `git show pr-<N>:<path>` and at the base with `git show $BASE:<path>`. Never check the PR out in the user's working tree or worktree; the branch there may be renamed or in use.
@@ -59,7 +59,7 @@ Done when every user point has an answer and every finding is verified or labell
 
 ## 5. Draft the GitHub review
 
-Only the findings the user marks as relevant go in. Write the draft outside every checkout, e.g. `~/.t3/worktrees/Dungeon/review-pr-<N>.md`, in this format (the payload script parses it):
+Only the findings the user marks as relevant go in. Write the draft outside every checkout (`~/.t3/worktrees/Dungeon/review-pr-<N>.md` under T3 Code, else the system temp folder), in this format (the payload script parses it):
 
 ````md
 # Review-Entwurf PR #<N> – <Titel>
@@ -85,7 +85,7 @@ Line numbers are PR-head lines (`git show pr-<N>:<path> | grep -n`). A `suggesti
 
 ### Review style
 
-The draft goes out under the user's account, so it reads like the user's own reviews. When `STYLE.local.md` exists in this skill folder, follow it. Otherwise read the user's past reviews (`<login>` from `gh api user --jq .login`) and match their language, length, and tone:
+The draft goes out under the user's account, so it reads like the user's own reviews. When `STYLE.local.md` exists in this skill folder, follow it. Otherwise read the user's past reviews (`<login>` from `gh api user --jq .login`) and match their language, length, and tone; when they have none, ask the user for the language and tone:
 
 ```sh
 gh api graphql -f query='query{ search(query:"repo:Dungeon-CampusMinden/Dungeon is:pr reviewed-by:<login>", type:ISSUE, first:20){ nodes{ ... on PullRequest{ number reviews(author:"<login>", first:5){ nodes{ state body comments(first:20){ nodes{ path line body } } } } } } } }'
@@ -105,6 +105,6 @@ Use `COMMENT` or `APPROVE` as the event when the draft's status says so. Afterwa
 
 ## 7. Re-review after updates
 
-Review only what changed since your last review: `git fetch origin pull/<N>/head:pr-<N>`, then `git log <last reviewed SHA>..pr-<N>` and `git diff <last reviewed SHA> pr-<N>`. Check every new commit, and that each earlier point is fixed or answered. Report in German, as in step 4.
+Review only what changed since your last review: `git fetch origin +pull/<N>/head:pr-<N>`, then `git log <last reviewed SHA>..pr-<N>` and `git diff <last reviewed SHA> pr-<N>`. Check every new commit, and that each earlier point is fixed or answered. Report in German, as in step 4.
 
 When nothing blocks: approve with an empty body, and merge (squash) only when the user asks and the required checks are green.
