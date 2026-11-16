@@ -1,0 +1,21 @@
+// Gradle init script used by play.sh: compiles the dungeon-play hook next to :game and loads it
+// into every game JVM (and the server child it spawns) through a javaagent. Nothing in the
+// checkout changes; the hook classes land in game/build/classes/java/dungeonPlay.
+def hookSrc = System.getenv('DUNGEON_PLAY_HOOK_SRC')
+def agentJar = System.getenv('DUNGEON_PLAY_AGENT_JAR')
+def state = System.getenv('DUNGEON_PLAY_STATE')
+
+gradle.beforeProject { p ->
+  if (p.path != ':game') return
+  p.afterEvaluate {
+    def hook = p.sourceSets.create('dungeonPlay') {
+      java.srcDir(hookSrc)
+      compileClasspath += p.sourceSets.main.output + p.sourceSets.main.compileClasspath
+    }
+    p.tasks.withType(JavaExec).configureEach {
+      classpath += hook.output
+      environment 'JDK_JAVA_OPTIONS', "-javaagent:${agentJar}"
+      environment 'DUNGEON_PLAY_STATE', state
+    }
+  }
+}

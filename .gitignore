@@ -1,0 +1,7 @@
+# Private additions linked in from an overlay (see README)
+*.local.*
+# Moved aside by the install scripts
+/.backup/
+# Built on first use
+/skills/*/hook/build/
+__pycache__/
