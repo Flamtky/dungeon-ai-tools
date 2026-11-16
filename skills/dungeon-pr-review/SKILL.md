@@ -43,7 +43,7 @@ The prompt contains: PR number, base SHA and `pr-<N>` ref with the `git diff` / 
 - For each user point: find out *why* the code is there (which bug it prevents) before agreeing it should go. Then show what removing it would break and what the clean replacement looks like.
 - Check `git show $BASE:<path>` to tell new code from code the PR only moved or re-indented. Mark pre-existing issues as such.
 - Trace cross-cutting paths end to end: input handling (`InputManager` → stage listeners → `InputSystem` callbacks), dialog ownership (local entity vs. synced hero) and `DialogCallbackResolver` routing, client vs. server authority.
-- Check these lenses: changes the feature does not need, needless complexity or abstraction, existing APIs and patterns left unused (`DungeonLogger`, existing assets and components), fully qualified class names instead of imports, nullable public returns instead of `Optional`, and new tests (the repo adds none unless requested).
+- Check these lenses: changes the feature does not need, needless complexity or abstraction, existing APIs and patterns left unused (`DungeonLogger`, existing assets and components), fully qualified class names instead of imports, nullable public returns instead of `Optional`, and tests beyond the central behaviour of the change: a test whose assertion another test already covers, a further input for the same branch, an edge case the change does not create, bulk checks of content. Name the tests that can go and the ones that carry the change.
 - When a conclusion depends on library behaviour, read the library source instead of guessing. libGDX sources live in `~/.gradle/caches/modules-2/files-2.1/com.badlogicgames.gdx/gdx/<version>/*/gdx-<version>-sources.jar`.
 
 ## 4. Merge and report

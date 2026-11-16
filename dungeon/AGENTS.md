@@ -38,8 +38,11 @@ storing those records. All four are active Gradle modules.
 
 ## Verification
 
-- Do not add new tests unless the user explicitly requests them. Update existing tests when
-  behavior or contracts change.
+- Keep new tests minimal: a few unit tests for the central behavior a change introduces, the rule
+  or contract that would otherwise break unnoticed. Each test covers what no other test covers.
+  Leave further inputs for the same branch, edge cases the change does not create, and bulk checks
+  of content such as texts to an explicit request. Update existing tests when behavior or
+  contracts change.
 - For implementation work, record the pre-existing worktree state and keep every change
   produced by `spotlessApply`. If it touches files outside the manual edit scope, inspect their
   diff and `master..HEAD` history: an earlier feature-branch commit may have introduced the
