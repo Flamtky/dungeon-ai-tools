@@ -13,7 +13,7 @@ places where the agents look for them, so `git pull` here is the whole update.
 | `dungeon/wizard/AGENTS.md` | Rules for Wizard and Foundation-runtime work | `<Dungeon>/wizard/AGENTS.md` |
 | `dungeon/docs/agents/issue-tracker.md` | How agents read issues | `<Dungeon>/docs/agents/issue-tracker.md` |
 | `skills/dungeon-play` | Play the game in a background window on Windows: input, state as text, screenshots, video | skill folder |
-| `skills/dungeon-play-linux` | The same on a headless Linux machine through Xvfb | skill folder, as `dungeon-play` |
+| `skills/dungeon-play-linux` | The same on a headless Linux machine through Xvfb; uses the in-game hook of `skills/dungeon-play` | skill folder, as `dungeon-play` |
 | `skills/dungeon-pr-review` | Review workflow for Dungeon pull requests | skill folder |
 | `skills/dungeon-dependabot` | Merge workflow for Dependabot pull requests, for maintainers | skill folder |
 

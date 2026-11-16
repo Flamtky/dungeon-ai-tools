@@ -46,7 +46,9 @@
 set -euo pipefail
 
 SKILL="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
-JDK=/usr/lib/jvm/temurin-25-jdk-amd64
+# The in-game hook and the image comparison are the Windows skill's: one source for both platforms.
+SHARED="$(cd "$SKILL/../dungeon-play" && pwd)"
+JDK="${JAVA_HOME:-/usr/lib/jvm/temurin-25-jdk-amd64}"
 # Points every per-display variable at display :$1.
 use_display() {
   DISP=":$1"; STATE="/tmp/dungeon-play/$DISP"; export DISPLAY="$DISP"
@@ -177,12 +179,12 @@ resolve() {
 }
 
 build_agent() {
-  local jar="$SKILL/hook/build/agent.jar" src="$SKILL/hook/agent/dungeonplay/Premain.java"
+  local jar="$SHARED/hook/build/agent.jar" src="$SHARED/hook/agent/dungeonplay/Premain.java"
   if [[ ! -f "$jar" || "$src" -nt "$jar" ]]; then
-    rm -rf "$SKILL/hook/build" && mkdir -p "$SKILL/hook/build/classes"
-    "$JDK/bin/javac" -d "$SKILL/hook/build/classes" "$src"
-    printf 'Premain-Class: dungeonplay.Premain\n' >"$SKILL/hook/build/manifest"
-    "$JDK/bin/jar" cfm "$jar" "$SKILL/hook/build/manifest" -C "$SKILL/hook/build/classes" .
+    rm -rf "$SHARED/hook/build" && mkdir -p "$SHARED/hook/build/classes"
+    "$JDK/bin/javac" -d "$SHARED/hook/build/classes" "$src"
+    printf 'Premain-Class: dungeonplay.Premain\n' >"$SHARED/hook/build/manifest"
+    "$JDK/bin/jar" cfm "$jar" "$SHARED/hook/build/manifest" -C "$SHARED/hook/build/classes" .
   fi
   echo "$jar"
 }
@@ -215,8 +217,8 @@ launch() {  # launch <window|server> <task> [gradle args]
   # once the game JVM runs, and the games themselves start in parallel.
   exec 8>"/tmp/dungeon-play/build.$(pwd -P | md5sum | cut -c1-16).lock"
   flock -w 600 8 || die "another dungeon-play build in this checkout has not finished within 600 s"
-  DUNGEON_PLAY_STATE="$STATE" DUNGEON_PLAY_AGENT_JAR="$jar" DUNGEON_PLAY_HOOK_SRC="$SKILL/hook/src" DUNGEON_PLAY_PORT="$PORT" \
-    setsid ./gradlew ":game:$task" --init-script "$SKILL/hook/init.gradle" --console=plain -q "$@" >"$STATE/game.log" 2>&1 8>&- &
+  DUNGEON_PLAY_STATE="$STATE" DUNGEON_PLAY_AGENT_JAR="$jar" DUNGEON_PLAY_HOOK_SRC="$SHARED/hook/src" DUNGEON_PLAY_PORT="$PORT" \
+    setsid ./gradlew ":game:$task" --init-script "$SHARED/hook/init.gradle" --console=plain -q "$@" >"$STATE/game.log" 2>&1 8>&- &
   echo $! >"$STATE/game.pid"
   local chan="$STATE/game"; [[ "$mode" == server ]] && chan="$STATE/server"
   for _ in $(seq 600); do
@@ -251,7 +253,7 @@ esac
 case "$cmd" in
   start)  launch window "$@" ;;
   server) launch server "$@" ;;
-  compare) "$JDK/bin/java" -Djava.awt.headless=true "$SKILL/scripts/Compare.java" "${1:?before directory}" "${2:?after directory}" "${3:?output directory}" ;;
+  compare) "$JDK/bin/java" -Djava.awt.headless=true "$SHARED/scripts/Compare.java" "${1:?before directory}" "${2:?after directory}" "${3:?output directory}" ;;
   key)
     focus
     xdotool keydown "$1"; sleep "${2:-0.08}"; xdotool keyup "$1" ;;

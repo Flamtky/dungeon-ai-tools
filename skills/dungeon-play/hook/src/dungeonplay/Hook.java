@@ -84,9 +84,10 @@ import org.lwjgl.system.windows.User32;
 
 /**
  * Text command channel into a running game for the dungeon-play skill. The skill's javaagent loads
- * it into every game and server JVM that play.ps1 starts; it is not part of the repository.
+ * it into every game and server JVM that the skill's driver starts (play.ps1 on Windows, play.sh
+ * on Linux); it is not part of the repository.
  *
- * <p>play.ps1 writes {@code <deadline-epoch-ms> <command line>} to {@code
+ * <p>The driver writes {@code <deadline-epoch-ms> <command line>} to {@code
  * $DUNGEON_PLAY_STATE/<kind>/req.<id>}; the answer appears as plain text in {@code res.<id>}.
  * {@code kind} is {@code server} for a headless server process and {@code game} for the windowed
  * process. Commands run on the game thread (libGDX frame or server tick) and are dropped once their
@@ -344,7 +345,10 @@ public final class Hook {
     return Math.round(Float.parseFloat(s));
   }
 
-  /** A file argument; play.ps1 sends {@code |} for each space and {@code ?} for each equals sign. */
+  /**
+   * A file argument; play.ps1 sends {@code |} for each space and {@code ?} for each equals sign,
+   * play.sh sends the path as it is.
+   */
   private static String file(String s) {
     return s.replace('|', ' ').replace('?', '=');
   }
