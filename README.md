@@ -16,6 +16,14 @@ places where the agents look for them, so `git pull` here is the whole update.
 | `skills/dungeon-play-linux` | The same on a headless Linux machine through Xvfb; uses the in-game hook of `skills/dungeon-play` | skill folder, as `dungeon-play` |
 | `skills/dungeon-pr-review` | Review workflow for Dungeon pull requests | skill folder |
 | `skills/dungeon-dependabot` | Merge workflow for Dependabot pull requests, for maintainers | skill folder |
+| `skills/ready-check` | Check a branch before its PR goes ready for review: local pipeline, change ledger, minimal-diff pass | skill folder |
+| `skills/ship` | Take an issue, bug, or feature to a merged PR on its own | skill folder |
+| `skills/babysit` | Keep a pull request moving until it merges | skill folder |
+| `skills/gh-stack` | Decide on and manage stacked pull requests with `gh stack` | skill folder |
+
+The four workflow skills at the end are not specific to Dungeon. `ship` also calls `grilling` and
+`diagnosing-bugs`; install those from [mattpocock/skills](https://github.com/mattpocock/skills),
+which also has `writing-for-agents` for editing the skills here.
 
 ## Install
 
@@ -47,6 +55,9 @@ contain the linked files; agents read them from the main checkout.
   `~/.local/bin` on `PATH`.
 - `dungeon-pr-review` and `dungeon-dependabot`: an authenticated `gh`. The review's second
   pass needs T3 Code with a Codex provider and is skipped without them.
+- `ready-check`, `ship`, `babysit`, `gh-stack`: an authenticated `gh`, for `gh-stack` with the
+  `gh stack` extension. `ready-check` and `ship` take their review models from your own agent
+  instructions and fall back to one review by another model.
 
 ## Private additions
 

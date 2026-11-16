@@ -1,0 +1,3 @@
+interface:
+  display_name: "Ready check"
+  short_description: "Justify every part of a diff before a PR goes ready for review"

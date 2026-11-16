@@ -1,0 +1,5 @@
+interface:
+  display_name: "Ship"
+  short_description: "Take an order to a merged PR on its own"
+policy:
+  allow_implicit_invocation: false

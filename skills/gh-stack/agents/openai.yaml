@@ -1,0 +1,4 @@
+interface:
+  display_name: "GitHub Stacks"
+  short_description: "Plan and manage dependent pull requests"
+  default_prompt: "Use $gh-stack to decide whether these changes should be stacked and manage the stack safely."
