@@ -39,7 +39,8 @@ storing those records. All four are active Gradle modules.
 ## Verification
 
 - Keep new tests minimal: a few unit tests for the central behavior a change introduces, the rule
-  or contract that would otherwise break unnoticed. Each test covers what no other test covers.
+  or contract that would otherwise break unnoticed; behavior a change rewrites counts as introduced
+  when no existing test covers it. Each test covers what no other test covers.
   Leave further inputs for the same branch, edge cases the change does not create, and bulk checks
   of content such as texts to an explicit request. Update existing tests when behavior or
   contracts change.
@@ -84,7 +85,8 @@ storing those records. All four are active Gradle modules.
   omit non-changes or exclusions.
 - Text on GitHub (PR descriptions, comments, reviews, commit messages) goes out under the user's
   account and reads as their own: no note that an AI or a model wrote, tested, or reviewed
-  something, no remarks on quotas or tool failures, no `Co-Authored-By` trailers or tool footers.
+  something, no remarks on agent tooling (quotas, model or tool outages), no `Co-Authored-By`
+  trailers or tool footers. Failing project checks still belong in the PR.
 - GitHub removes the workflow runs of older PRs, so such a PR shows no checks. That is expected.
   Close and reopen the PR to run the pipeline again, but only once it is about to be merged:
   while a review is pending, wait for the approval first.

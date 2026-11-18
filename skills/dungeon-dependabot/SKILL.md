@@ -10,14 +10,14 @@ Merge every open Dependabot PR. Bumps are expected to need no code change; the A
 ## 1. Collect the batch
 
 ```sh
-gh pr list --author app/dependabot --state open --json number,title,headRefName,headRefOid,files
+gh pr list --author app/dependabot --state open --json number,title,headRefName,headRefOid,assignees,files
 ```
 
-These PRs are the **batch**; under T3 Code, link each with `link_pull_request` and arm `watch_pull_request` on it, so a conflict or a failing check after a merge wakes you. The batch is done when every PR in it is merged, closed by Dependabot as superseded, or skipped with a reason.
+Leave out a PR that is assigned to someone other than you (`gh api user --jq .login`) and name it in the report. The others are the **batch**; under T3 Code, link each with `link_pull_request` and arm `watch_pull_request` on it, so a conflict or a failing check after a merge wakes you. The batch is done when every PR in it is merged, closed by Dependabot as superseded, or skipped with a reason.
 
 ## 2. API check, per PR
 
-Skip a PR that is assigned to someone else and name it in the report. Assign any other to the user first (`gh pr edit <n> --add-assignee '@me'`): the user owns the merge and what follows. Then read the release notes and changelog in the PR body (`gh pr view <n> --json body`) for the whole version range; follow the linked changelog when the body is truncated. Then find where the repo touches the dependency:
+Assign the PR to the user first (`gh pr edit <n> --add-assignee '@me'`): the user owns the merge and what follows. Read its comments (`gh pr view <n> --json comments`); skip a PR with a human discussion that has not settled, such as a request to hold it, and quote it in the report. Then read the release notes and changelog in the PR body (`gh pr view <n> --json body`) for the whole version range; follow the linked changelog when the body is truncated. Then find where the repo touches the dependency:
 
 - Gradle library or plugin (`dependencies.gradle`, `build.gradle`): imports of its packages and calls into the changed APIs.
 - npm in `wizard/spec-generator`: a dependency only in `package-lock.json`, not in `package.json`, is transitive and needs no further check.
@@ -29,7 +29,7 @@ A PR is **critical** when a breaking or behaviour change from the notes hits cod
 
 CI is green when every check on the PR's head SHA succeeded or was skipped. Wait for running checks with `gh pr checks <n> --watch` as a background command and check the other PRs meanwhile.
 
-`master` requires checks that only `pull_request` runs satisfy; a manually dispatched workflow never counts. When the PR reports no checks, GitHub has removed its runs: once the API check has passed, close and reopen the PR, which starts the checks on the same head.
+`master` requires checks that only `pull_request` runs satisfy; a manually dispatched workflow never counts. When the PR reports no checks although its head commit is older than 15 minutes (`gh pr view <n> --json commits --jq '.commits[-1].committedDate'`), GitHub has removed its runs: once the API check has passed and the PR has no conflict, close and reopen it, which starts the checks on the same head. A PR with a conflict gets `@dependabot rebase` first (step 4).
 
 ```sh
 gh pr close <n>
@@ -38,7 +38,7 @@ gh pr reopen <n>
 
 `@dependabot rebase` is for conflicts (step 4): on a branch that is up to date it pushes nothing, so it starts no checks.
 
-A failed run: read `gh run view <id> --log-failed`. A failure caused by the bump makes the PR critical (step 2); a flaky infrastructure failure gets one `gh run rerun <id> --failed`.
+A failed run: read `gh run view <id> --log-failed`. A failure caused by the bump makes the PR critical (step 2); a flaky infrastructure failure gets one `gh run rerun <id> --failed`; a failure that `master` shows as well is outside the bump: report it and skip the PR.
 
 ## 4. Merge, one at a time
 

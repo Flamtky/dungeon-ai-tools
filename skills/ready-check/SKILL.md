@@ -15,7 +15,7 @@ Done when every relevant CI check has run locally and is green, or each red chec
 
 ## 2. Pin the base and the requirements
 
-1. `git fetch origin`, then base = `git merge-base origin/<default> HEAD`. A stale local default branch is the classic way to review code that is already merged.
+1. `git fetch origin`, then base = `git merge-base origin/<target> HEAD`, where `<target>` is the base the user names, else the PR's base branch (the parent branch in a stack), else the default branch. A stale local default branch is the classic way to review code that is already merged.
 2. Diff = `git diff <base>...HEAD`. If the worktree is dirty, include those changes and say so.
 3. Requirements: the linked issue (PR body, commit messages, branch name; fetch it with `gh`), the PR description, and the task from the conversation. Ask the user when none exists.
 
@@ -42,13 +42,13 @@ Done when every hunk belongs to exactly one unit: the units' line counts add up 
 
 ## 4. Minimal-diff pass
 
-Pick the **reviewers**: the review pair that the user's instructions name. Where they name none, look at what is installed (`codex --version`, `claude --version`, under T3 Code `orchestrator_capabilities`) and take one model of another provider; with your own provider alone, a fresh subagent on another of its models, or on your own model when it offers no other.
+Pick the **reviewers**: the review pair that the user's instructions name. Where they name none, look at what is installed (`codex --version`, `claude --version`, under T3 Code `orchestrator_capabilities`) and take one model of another provider; with your own provider alone, a fresh subagent on its strongest other model, or on your own model when it offers no other.
 
 Delegate a read-only review to each reviewer through T3 `delegate_task`, the CLI (`codex exec`, `claude -p`), or your own subagent tool. Give each the base, the diff command, the requirements, and your ledger. Their one question:
 
 > What can be removed or simplified while every requirement still holds? For each proposal, show the smaller alternative (exact deletion or code) and the lines saved. Contest any ledger verdict you disagree with.
 
-If quota or an outage blocks a reviewer, follow the quota rule in the user's instructions, or continue with the remaining one where they have none; with none left, pick again from what is installed. In a `ship` run, follow its quota rule instead.
+If quota or an outage blocks a reviewer, follow the quota rule in the user's instructions, or continue with the remaining one where they have none; with none left, use a fresh subagent of your own provider. In a `ship` run, follow its quota rule instead.
 
 Check each proposal against the code yourself and mark it **accept** or **reject**, with a reason when you reject.
 
