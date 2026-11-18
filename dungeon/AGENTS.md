@@ -13,7 +13,9 @@ and concrete rooms. These remain separate logical slices even though they share 
 `wizard` contains authoring, packaging, and the generic Foundation runner. `tracking:core`
 contains the Wizard-independent tracking records and JSON codec used by the game and backend.
 `tracking:backend` is the self-hosted HTTP and PostgreSQL reference service for receiving and
-storing those records. All four are active Gradle modules.
+storing those records. `audience:relay` connects a game in audience mode with the audience's
+devices: it serves the web page, keeps sessions in memory, and forwards the public game state and
+the audience's input, without game logic or a database. All five are active Gradle modules.
 
 ## Engineering boundaries
 
