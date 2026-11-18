@@ -48,7 +48,10 @@ set -euo pipefail
 SKILL="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 # The in-game hook and the image comparison are the Windows skill's: one source for both platforms.
 SHARED="$(cd "$SKILL/../dungeon-play" && pwd)"
-JDK="${JAVA_HOME:-/usr/lib/jvm/temurin-25-jdk-amd64}"
+# The JDK Dungeon builds with: JAVA_HOME, else the Temurin 25 package, else the one whose javac is on PATH.
+if [[ -n "${JAVA_HOME:-}" ]]; then JDK="$JAVA_HOME"
+elif [[ -d /usr/lib/jvm/temurin-25-jdk-amd64 ]]; then JDK=/usr/lib/jvm/temurin-25-jdk-amd64
+else JDK="$(dirname "$(dirname "$(readlink -f "$(command -v javac || echo javac)")")")"; fi
 # Points every per-display variable at display :$1.
 use_display() {
   DISP=":$1"; STATE="/tmp/dungeon-play/$DISP"; export DISPLAY="$DISP"

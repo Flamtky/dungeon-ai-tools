@@ -87,6 +87,8 @@ platform_skills() {
   for dir in "$repo"/skills/*/; do
     dir="${dir%/}"
     name="$(basename "$dir")"
+    # dungeon-play has drivers for Windows and Linux only.
+    [[ "$(uname -s)" != Darwin || "$name" != dungeon-play* ]] || continue
     if [[ "$name" == *-linux ]]; then
       echo "${name%-linux} $dir"
     elif [[ ! -d "$dir-linux" ]]; then
@@ -96,6 +98,7 @@ platform_skills() {
 }
 
 available="$(platform_skills)"
+[[ "$(uname -s)" != Darwin ]] || echo "dungeon-play has no macOS driver and is left out" >&2
 if [[ -n "$skills" ]]; then
   IFS=, read -ra wanted <<<"$skills"
   for name in "${wanted[@]}"; do

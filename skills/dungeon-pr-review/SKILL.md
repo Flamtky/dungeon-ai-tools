@@ -93,7 +93,7 @@ gh api graphql -f query='query{ search(query:"repo:Dungeon-CampusMinden/Dungeon 
 
 ## 6. Post (only when the user asks)
 
-Build the payload with [`scripts/build_review_payload.py`](scripts/build_review_payload.py) from this skill folder (`python3` on Linux), writing it to a temporary file:
+Build the payload with [`scripts/build_review_payload.py`](scripts/build_review_payload.py) from this skill folder (`python3` on Linux and macOS), writing it to a temporary file:
 
 ```sh
 python <skill folder>/scripts/build_review_payload.py \

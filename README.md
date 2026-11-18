@@ -53,6 +53,7 @@ contain the linked files; agents read them from the main checkout.
   `~/.local/bin` on `PATH`.
 - `dungeon-play` on Linux: `Xvfb`, `xdotool`, `ffmpeg`, the JDK Dungeon builds with, and
   `~/.local/bin` on `PATH`.
+- `dungeon-play` has no macOS driver; on a Mac, `install.sh` leaves it out.
 - `dungeon-pr-review` and `dungeon-dependabot`: an authenticated `gh`.
 - `ready-check`, `ship`, `babysit`, `gh-stack`: an authenticated `gh`, for `gh-stack` with the
   `gh stack` extension.
