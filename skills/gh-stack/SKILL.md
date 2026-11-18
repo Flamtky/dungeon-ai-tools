@@ -10,7 +10,7 @@ Use native GitHub stacks to split dependent changes into reviewable layers while
 ## Apply the operating rules
 
 - Follow repository-specific GitHub, commit, signing, and PR rules first.
-- Treat questions, explanations, and inspections as read-only. Obtain explicit authorization before pushing branches, creating or changing PRs, linking or unstacking PRs, or merging.
+- Treat questions, explanations, and inspections as read-only. Obtain authorization from the task or the user before pushing branches, creating or changing PRs, linking or unstacking PRs, or merging.
 - Use the authenticated GitHub CLI. Do not substitute a GitHub connector when repository rules require `gh`.
 - Before changing a stack, inspect `git status --short --branch`, the current branch, remotes, the default branch, and `gh stack view`. Preserve unrelated or uncommitted work.
 - Run `gh auth status`, `gh stack --version`, and the relevant `gh stack <command> --help` before execution when availability or syntax is uncertain.
@@ -58,7 +58,7 @@ Set each PR base to the branch immediately below it. Expect GitHub's stack map t
 4. Run `gh stack add <next-branch>`, then implement and commit that layer.
 5. Repeat only for genuinely dependent layers.
 6. Inspect with `gh stack view`.
-7. With explicit publication authorization, run `gh stack submit` and complete the PR editor according to repository conventions.
+7. With publication authorization, run `gh stack submit` and complete the PR editor according to repository conventions.
 
 ### Adopt existing branches
 

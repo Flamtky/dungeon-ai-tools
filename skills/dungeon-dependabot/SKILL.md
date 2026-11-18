@@ -27,7 +27,7 @@ A PR is **critical** when a breaking or behaviour change from the notes hits cod
 
 ## 3. CI
 
-CI is green when every check on the PR's head SHA succeeded or was skipped; no checks yet means pending. Wait for running checks with `gh pr checks <n> --watch` as a background command (it exits at once while no checks exist) and check the other PRs meanwhile.
+CI is green when every check on the PR's head SHA succeeded or was skipped; no checks yet means pending. Under T3 Code, the PR watch from step 1 wakes you when checks finish; outside T3, wait with `gh pr checks <n> --watch` as a background command (it exits at once while no checks exist). Check the other PRs meanwhile.
 
 `master` requires checks that only `pull_request` runs satisfy; a manually dispatched workflow never counts. When the PR reports no checks although its head commit is older than 15 minutes (`gh pr view <n> --json commits --jq '.commits[-1].committedDate'`), GitHub has removed its runs: once the API check has passed and `gh pr view <n> --json mergeable` reports `MERGEABLE`, close and reopen it, which starts the checks on the same head. A conflicting PR gets `@dependabot rebase` first (step 4); a younger head or `UNKNOWN` gets another look once the other PRs are handled.
 
@@ -49,7 +49,7 @@ gh pr merge <n> --squash
 
 `master` requires one approving review. Approve only a green PR, with an empty body.
 
-After each merge, take the next green PR as it is: a PR behind `master` needs no update. Only a conflict (`gh pr view <n> --json mergeable` reports `CONFLICTING`) does: comment `@dependabot rebase`, continue with the other PRs, and return once Dependabot has pushed; the new head SHA needs green CI again (step 3). The PR watch misses a push that starts no CI, so wait for the new head with a background command (timeout 30 minutes):
+After each merge, take the next green PR as it is: a PR behind `master` needs no update. Only a conflict (`gh pr view <n> --json mergeable` reports `CONFLICTING`) does: comment `@dependabot rebase`, continue with the other PRs, and return once Dependabot has pushed; the new head SHA needs green CI again (step 3). Under T3 Code, the PR watch wakes you when the push starts the checks; outside T3, wait for the new head with a background command (timeout 30 minutes):
 
 ```sh
 until [ "$(gh pr view <n> --json headRefOid --jq .headRefOid)" != "<old headRefOid>" ]; do sleep 60; done
