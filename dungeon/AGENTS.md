@@ -81,7 +81,10 @@ storing those records. All four are active Gradle modules.
 - Before drafting or editing a PR, read `CONTRIBUTING.md` and sample the user's recent comparable
   PRs. Match their language, structure, and level of detail. Describe the resulting target state
   established by the PR; include prior-state context only when it clarifies that outcome, and
-  omit non-changes or exclusions. Never retain generated tool attribution or feedback footers.
+  omit non-changes or exclusions.
+- Text on GitHub (PR descriptions, comments, reviews, commit messages) goes out under the user's
+  account and reads as their own: no note that an AI or a model wrote, tested, or reviewed
+  something, no remarks on quotas or tool failures, no `Co-Authored-By` trailers or tool footers.
 - GitHub removes the workflow runs of older PRs, so such a PR shows no checks. That is expected.
   Close and reopen the PR to run the pipeline again, but only once it is about to be merged:
   while a review is pending, wait for the approval first.
