@@ -17,7 +17,7 @@ Leave out a PR that is assigned to someone other than you (`gh api user --jq .lo
 
 ## 2. API check, per PR
 
-Assign the PR to the user first (`gh pr edit <n> --add-assignee '@me'`): the user owns the merge and what follows. Read its comments (`gh pr view <n> --json comments`); skip a PR with a human discussion that has not settled, such as a request to hold it, and quote it in the report. Then read the release notes and changelog in the PR body (`gh pr view <n> --json body`) for the whole version range; follow the linked changelog when the body is truncated. Then find where the repo touches the dependency:
+Read its comments and reviews first (`gh pr view <n> --json comments,reviews`); skip a PR with a human discussion that has not settled, such as a request to hold it, and quote it in the report. Assign every other PR to the user (`gh pr edit <n> --add-assignee '@me'`): the user owns the merge and what follows. Then read the release notes and changelog in the PR body (`gh pr view <n> --json body`) for the whole version range; follow the linked changelog when the body is truncated. Then find where the repo touches the dependency:
 
 - Gradle library or plugin (`dependencies.gradle`, `build.gradle`): imports of its packages and calls into the changed APIs.
 - npm in `wizard/spec-generator`: a dependency only in `package-lock.json`, not in `package.json`, is transitive and needs no further check.
@@ -27,9 +27,9 @@ A PR is **critical** when a breaking or behaviour change from the notes hits cod
 
 ## 3. CI
 
-CI is green when every check on the PR's head SHA succeeded or was skipped. Wait for running checks with `gh pr checks <n> --watch` as a background command and check the other PRs meanwhile.
+CI is green when every check on the PR's head SHA succeeded or was skipped; no checks yet means pending. Wait for running checks with `gh pr checks <n> --watch` as a background command (it exits at once while no checks exist) and check the other PRs meanwhile.
 
-`master` requires checks that only `pull_request` runs satisfy; a manually dispatched workflow never counts. When the PR reports no checks although its head commit is older than 15 minutes (`gh pr view <n> --json commits --jq '.commits[-1].committedDate'`), GitHub has removed its runs: once the API check has passed and the PR has no conflict, close and reopen it, which starts the checks on the same head. A PR with a conflict gets `@dependabot rebase` first (step 4).
+`master` requires checks that only `pull_request` runs satisfy; a manually dispatched workflow never counts. When the PR reports no checks although its head commit is older than 15 minutes (`gh pr view <n> --json commits --jq '.commits[-1].committedDate'`), GitHub has removed its runs: once the API check has passed and `gh pr view <n> --json mergeable` reports `MERGEABLE`, close and reopen it, which starts the checks on the same head. A conflicting PR gets `@dependabot rebase` first (step 4); a younger head or `UNKNOWN` gets another look once the other PRs are handled.
 
 ```sh
 gh pr close <n>
@@ -38,7 +38,7 @@ gh pr reopen <n>
 
 `@dependabot rebase` is for conflicts (step 4): on a branch that is up to date it pushes nothing, so it starts no checks.
 
-A failed run: read `gh run view <id> --log-failed`. A failure caused by the bump makes the PR critical (step 2); a flaky infrastructure failure gets one `gh run rerun <id> --failed`; a failure that `master` shows as well is outside the bump: report it and skip the PR.
+A failed run: read `gh run view <id> --log-failed`. A failure caused by the bump makes the PR critical (step 2); a flaky infrastructure failure gets one `gh run rerun <id> --failed`; a failure that the same check shows for the same reason on other current PRs is outside the bump (`master` runs no PR checks; compare with the latest merged PR): report it and skip the PR.
 
 ## 4. Merge, one at a time
 

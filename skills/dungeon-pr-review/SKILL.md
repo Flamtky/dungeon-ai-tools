@@ -11,13 +11,13 @@ The review stays read-only until the user explicitly asks to post it; the one ex
 
 ```sh
 gh pr view <N> --json title,body,headRefName,baseRefName,headRefOid,state,files,comments,reviews,closingIssuesReferences
-gh api repos/Dungeon-CampusMinden/Dungeon/pulls/<N>/comments
+gh api --paginate repos/Dungeon-CampusMinden/Dungeon/pulls/<N>/comments
 git fetch origin +pull/<N>/head:pr-<N> master
 git merge-base origin/master pr-<N>
 git diff <base> pr-<N>
 ```
 
-`<base>` is the SHA that `git merge-base` prints. Read the linked issue (`gh issue view <number> --comments`) and the existing review threads before your own pass. Read files at PR head with `git show pr-<N>:<path>` and at the base with `git show <base>:<path>`. Never check the PR out in the user's working tree or worktree; the branch there may be renamed or in use.
+`<base>` is the SHA that `git merge-base` prints. Read the linked issue (`gh issue view <number> --json title,body,comments`) and the existing review threads before your own pass. Read files at PR head with `git show pr-<N>:<path>` and at the base with `git show <base>:<path>`. Never check the PR out in the user's working tree or worktree; the branch there may be renamed or in use.
 
 ## 2. Start the second pass in the background
 
@@ -60,7 +60,7 @@ Done when every user point has an answer and every finding is verified or labell
 
 ## 5. Draft the GitHub review
 
-Only the findings the user marks as relevant go in; when the user asks for the draft without marking any, every verified finding goes in. Write the draft outside every checkout (`~/.t3/worktrees/Dungeon/review-pr-<N>.md` under T3 Code, else the system temp folder), in this format (the payload script parses it):
+Only the findings the user marks as relevant go in; when the user asks for the draft without marking any, every verified finding the PR introduces goes in. Write the draft outside every checkout (`~/.t3/worktrees/Dungeon/review-pr-<N>.md` under T3 Code, else the system temp folder), in this format (the payload script parses it):
 
 ````md
 # Review-Entwurf PR #<N> – <Titel>
@@ -89,7 +89,7 @@ Line numbers are PR-head lines (`git show pr-<N>:<path> | grep -n`). A `suggesti
 The draft goes out under the user's account, so it reads like the user's own reviews. When `STYLE.local.md` exists in this skill folder, follow it. Otherwise read the user's past reviews (`<login>` from `gh api user --jq .login`) and match their language, length, and tone; when they have none, ask the user for the language and tone:
 
 ```sh
-gh api graphql -f query='query{ search(query:"repo:Dungeon-CampusMinden/Dungeon is:pr reviewed-by:<login> -author:app/dependabot", type:ISSUE, first:20){ nodes{ ... on PullRequest{ number reviews(author:"<login>", first:5){ nodes{ state body comments(first:20){ nodes{ path line body } } } } } } } }'
+gh api graphql -f q='repo:Dungeon-CampusMinden/Dungeon is:pr reviewed-by:<login> -author:app/dependabot' -f login='<login>' -f query='query($q:String!,$login:String!){ search(query:$q, type:ISSUE, first:20){ nodes{ ... on PullRequest{ number reviews(author:$login, first:5){ nodes{ state body comments(first:20){ nodes{ path line body } } } } } } } }'
 ```
 
 ## 6. Post (only when the user asks)
@@ -106,6 +106,6 @@ Use `COMMENT` or `APPROVE` as the event when the draft's status says so. Afterwa
 
 ## 7. Re-review after updates
 
-Review only what changed since your last review. The last reviewed SHA is the `commit_id` of your last review in `gh api repos/Dungeon-CampusMinden/Dungeon/pulls/<N>/reviews`. Run `git fetch origin +pull/<N>/head:pr-<N>`, then `git log <last reviewed SHA>..pr-<N>` and `git diff <last reviewed SHA> pr-<N>`. Check every new commit, and that each earlier point is fixed or answered. Report in German, as in step 4.
+Review only what changed since your last review. The last reviewed SHA is the head of your previous round: after a posted round, the `commit_id` of your last review that is more than a bare thread reply, which shows as `COMMENTED` with body length 0 (`gh api --paginate repos/Dungeon-CampusMinden/Dungeon/pulls/<N>/reviews --jq '.[] | [.user.login, .state, (.body | length), .commit_id] | @tsv'`); after a round that stayed local, `git rev-parse pr-<N>` before the fetch. Run `git fetch origin +pull/<N>/head:pr-<N>`, then `git log <last reviewed SHA>..pr-<N>` and `git diff <last reviewed SHA> pr-<N>`. When the PR was rebased since (`git merge-base --is-ancestor <last reviewed SHA> pr-<N>` fails), fetch that SHA (`git fetch origin <sha>`) and compare with `git range-diff <old base>..<last reviewed SHA> <base>..pr-<N>`, where `<old base>` is `git merge-base origin/master <last reviewed SHA>`. Check every new commit, and that each earlier point is fixed or answered. Report in German, as in step 4.
 
-Approve with an empty body when all of these hold: the user asked for this re-review and did not ask for it read-only, the PR is still open (`gh pr view <N> --json state`), your previous round is posted on GitHub, and every point from it is fixed or answered with no unproven finding left. Otherwise report and wait. Merge (squash) only when the user asks and the required checks are green.
+Approve with an empty body when all of these hold: the user asked for this re-review and did not limit it to looking or reporting (e.g. „schau nur drüber“, „nur lokal“), the PR is still open (`gh pr view <N> --json state`), your previous round is posted on GitHub, every point from it is fixed or answered in a way you accept, and this round brings no finding, verified or unproven. Otherwise report and wait. Merge (squash) only when the user asks and the required checks are green.

@@ -11,7 +11,7 @@ The user invokes this skill to get a change merged. After step 1, run to the mer
 ## The order
 
 - **Goal**: issue, bug, feature, or spec.
-- **Location** (required): this machine or a linked one. If it is missing, ask before any other work. Without T3 Code it is always this machine.
+- **Location** (required): this machine or a linked one. If it is missing, ask before any other work. Without T3 Code another machine is out of reach: when the order names one, ask before any other work.
 - **Optional**: reviewer, follow-ups after the merge.
 
 ## 1. Pin the order
@@ -22,8 +22,8 @@ Write the requirements and an acceptance list. Each acceptance item names someth
 
 - Unclear requirement: `grilling`, all questions in one round (without that skill, ask them yourself in one round).
 - More than one PR: write a local spec with the PR cut, agree it with the user, then ship the PRs in order.
-- Other machine: launch a thread there in its own worktree, on the model the user's instructions name for it (your own where they name none), without `delegatedFrom`. The brief starts with `/ship` (Codex: `$ship`), says that step 1 is done and the thread continues at step 2, and contains the order, the acceptance list, and the content of the plans it needs, since local paths do not exist there. The launched worktree takes the place of step 2's.
-- Without T3 Code, a review does not wake this thread: say in this round that after step 8 the user resumes the thread once the reviewer has answered. On resume, read checks, reviews, and mergeability afresh.
+- Other machine: launch a thread there in its own worktree, on the model the user's instructions name for it (your own where they name none), without `delegatedFrom`. The brief starts with `/ship` (Codex: `$ship`), says that steps 1 and 2 are done (the launched worktree and its branch are step 2's) and the thread continues at step 3, and contains the order, the acceptance list, and the content of the plans it needs, since local paths do not exist there.
+- Without T3 Code, a review does not wake this thread: say in this round that after step 8 the user resumes the thread once the reviewer has answered. On resume, read checks, reviews, and mergeability afresh and handle them as a `babysit` wake.
 
 Done when every requirement has an acceptance item and a way to check it, and every decision you can foresee is settled.
 
@@ -83,7 +83,7 @@ Every decision goes into the update of its step: the options, your choice, the r
 
 After step 1, decide everything yourself, including design questions from reviews: take the option with the smallest diff that is easiest to reverse, and record it in the PR description and in the thread. Answer reviewers on the PR yourself. This replaces babysit's asking.
 
-If a reviewer of the pair has no quota, retry every 30 minutes with a one-off background command for up to five hours, the usual length of a limit window. Then run the review with the remaining one alone or, with none left, pick again from what is installed. In a `ship` run this replaces the quota rule in the user's instructions. Mention it only in the report in this thread, and leave it out of everything on GitHub.
+If a reviewer has no quota, a sole one included, retry every 30 minutes with a one-off background command for up to five hours, the usual length of a limit window; an outage skips the retries. Then run the review with the remaining one alone or, with none left, a fresh subagent on a model you can still call; when no reviewer can run, say so in the thread and keep the PR in draft. In a `ship` run this replaces the quota rule in the user's instructions. Mention it only in the report in this thread, and leave it out of everything on GitHub.
 
 Wait for the user only when you cannot continue: signing fails, access is missing, or data without a backup would be lost. Name what you need.
 
