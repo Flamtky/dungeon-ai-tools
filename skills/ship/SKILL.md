@@ -63,7 +63,7 @@ Fetch and compare the base. If it moved or a stacked parent merged, rebase with 
 
 If the test list has entries, leave the PR as a draft, provide a test build and the list, and wait. Feedback returns to step 4. The user's OK continues below.
 
-Mark it ready, request exactly one reviewer (the named one, else the best fit from the history of the touched files, within the project's rules), and run `babysit` with the merge granted. More than one reviewer needs the user's word.
+Mark it ready, request exactly one reviewer (the named one, else the best fit from the history of the touched files, within the project's rules), and run `babysit`. More than one reviewer needs the user's word.
 
 After the merge, do the follow-ups from the order and, under T3 Code, unwatch the PR.
 
