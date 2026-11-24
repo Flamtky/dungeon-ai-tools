@@ -1018,18 +1018,19 @@ public final class Hook {
 
   // ---- render gate (game process)
 
-  // Under software GL the scene costs ~100 ms per frame and game logic advances once per frame, so
-  // a rendered game runs at a third of its speed. Unless something looks (shot, look, record), the gate
-  // keeps DrawSystem's stable width unset after DrawSystem.execute, so DrawSystem.render skips the
-  // scene; the HUD stage still draws, and animations keep updating.
+  // Under software GL the scene costs ~100 ms per frame, so a rendered game stutters and may fall
+  // behind its tick rate. Unless something looks (shot, look, record), the gate unsets DrawSystem's
+  // stable width between DrawSystem.execute and DrawSystem.render, so render skips the scene; the HUD
+  // stage still draws, and animations keep updating.
   private static volatile boolean sceneOn = WINDOWS || "always".equals(System.getenv("DUNGEON_PLAY_RENDER"));
   private static Field stableWidth;
   // DrawSystem advances its shader clock only when it renders; the gate keeps it running.
   private static Field secondsElapsed;
 
   private static final class RenderGate extends engine.System {
+    /** A client system executes in the frame pass: after the DrawSystem of every tick, before render. */
     RenderGate() {
-      super(AuthoritativeSide.BOTH);
+      super(AuthoritativeSide.CLIENT);
     }
 
     /** Pausing the game stops all systems; like DrawSystem, the gate keeps running. */

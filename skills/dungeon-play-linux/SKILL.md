@@ -9,7 +9,7 @@ description: Play the Dungeon game on this headless server through a virtual dis
 
 Games started this way carry an in-game hook, loaded from the `dungeon-play` folder beside this skill's own at launch; the repository stays unchanged. The hook answers in text: hero position, inventory, open dialogs with their texts and container contents, visible buttons and texts, the interactables nearby with `#id`, distance and screen pixel, and every change since the last look (items picked up, dialogs opened, hit points, players joining). It also walks, interacts, teleports and sets up state. Text is cheap and exact; every screenshot you `Read` costs image budget. Work from text and read images only when the look itself is under test.
 
-The hook draws the game world only while `shot`, `look` or `record` captures it, so the game runs at full speed (rendering under software GL would slow it to a third). Menus, dialogs and the HUD always draw.
+The hook draws the game world only while `shot`, `look` or `record` captures it, so the game runs at full speed (rendering under software GL would drop it to 5 to 10 FPS). Menus, dialogs and the HUD always draw.
 
 ## 1. Start
 
