@@ -4,6 +4,8 @@
 # DUNGEON_PLAY_DISPLAY is set and print it; every later command needs DUNGEON_PLAY_DISPLAY=<that display>.
 # The game's network port is 50000 + display number unless DUNGEON_PLAY_PORT is set on `start`.
 # Run `start` from the checkout or worktree under test. State and logs: /tmp/dungeon-play/<display>/ (kept as .last after stop).
+# A display belongs to the Git checkout that started its game: later commands, `stop` included, refuse to
+# run from another checkout unless called as `dungeon-play --force <command>`.
 #
 # Lifecycle
 #   start <gradle-task> [gradle args]   Xvfb + game; returns once the game renders
@@ -62,6 +64,8 @@ DISP="${DUNGEON_PLAY_DISPLAY:-:100}"; use_display "${DISP#:}"
 NOISE='ALSA lib|^\s+at |^\s*\.\.\. [0-9]+ more|LWJGL|Unsafe|sun\.misc|Generated internal assets|NOTE: Picked up JDK_JAVA_OPTIONS|connection preamble|Failed connection handshake|^\[Controllers\]'
 
 die() { echo "$*" >&2; exit 1; }
+# The checkout a command runs from: its Git root, else the directory itself.
+checkout() { git rev-parse --show-toplevel 2>/dev/null || pwd -P; }
 # Prints why display :$1 cannot take a new game, or nothing when it is free; checks port $2 if given.
 taken() {
   # Xvfb takes over a display whose lock names a dead process (left by a killed X server).
@@ -210,7 +214,7 @@ launch() {  # launch <window|server> <task> [gradle args]
   # A failed start cleans up after itself; the success path clears this.
   trap 'DUNGEON_PLAY_DISPLAY="$DISP" "$0" stop >/dev/null 2>&1 || true' EXIT
   local jar; jar="$(build_agent)"
-  rm -rf "$STATE"; mkdir -p "$STATE/pids"; echo "$SIZE" >"$STATE/size"
+  rm -rf "$STATE"; mkdir -p "$STATE/pids"; echo "$SIZE" >"$STATE/size"; checkout >"$STATE/owner"
   # Xvfb and Gradle run in their own session: agent shells that end a command's process group
   # when the command returns (Codex) would otherwise end the game with `start`.
   setsid Xvfb "$DISP" -screen 0 "${SIZE}x24" -nolisten tcp >"$STATE/xvfb.log" 2>&1 &
@@ -244,10 +248,17 @@ launch() {  # launch <window|server> <task> [gradle args]
   trap - EXIT
 }
 
+# Exported, so the commands `mp` and `stop` run on further displays inherit it.
+if [[ "${1:-}" == --force ]]; then export DUNGEON_PLAY_FORCE=1; shift; fi
 cmd="${1:-}"; shift || true
 case "$cmd" in
   start|server|mp|sheet|compare|"") ;;
-  *) [[ -n "${DUNGEON_PLAY_DISPLAY:-}" ]] || die "set DUNGEON_PLAY_DISPLAY to the display that start or mp printed" ;;
+  *)
+    [[ -n "${DUNGEON_PLAY_DISPLAY:-}" ]] || die "set DUNGEON_PLAY_DISPLAY to the display that start or mp printed"
+    # A display without a stored owner (started by an older dungeon-play) takes every command.
+    owner="$(cat "$STATE/owner" 2>/dev/null || true)"
+    [[ -z "$owner" || "$owner" == "$(checkout)" || -n "${DUNGEON_PLAY_FORCE:-}" ]] \
+      || die "the game on $DISP was started from $owner, not from this checkout ($(checkout)): use the display your own start printed. To act on $DISP anyway: dungeon-play --force $cmd ..." ;;
 esac
 # wait also matches what the latest action caused, even when that action has already returned.
 case "$cmd" in

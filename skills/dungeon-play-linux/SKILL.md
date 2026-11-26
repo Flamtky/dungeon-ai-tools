@@ -19,7 +19,7 @@ dungeon-play mp runGameOfGames - Bob           # multiplayer: host (default name
 dungeon-play start runMushRoom                 # the game as it launches (menu or level); any :game:run* task from game/build.gradle
 ```
 
-`start` returns once the game renders; `mp` returns once every hero is in the game, in any menu language and with a room's own host label. On failure both print the log tail and stop what they started. Both take the first free display from :100 on (other agents use this server too) and print it, `mp` one per player; pass `DUNGEON_PLAY_DISPLAY=<display>` to every later command. Each display gets its own network port (50000 + display number). Starts from the same checkout build one after another, then load in parallel. A room offers only as many players as it has characters (GameOfGames: two); rooms without Join Game (SystemRecovery) run the host only.
+`start` returns once the game renders; `mp` returns once every hero is in the game, in any menu language and with a room's own host label. On failure both print the log tail and stop what they started. Both take the first free display from :100 on (other agents use this server too) and print it, `mp` one per player; pass `DUNGEON_PLAY_DISPLAY=<display>` to every later command. A display belongs to the checkout that started its game: every command from another checkout, `stop` included, fails and names the owner, and `dungeon-play --force <command>` runs it anyway. Each display gets its own network port (50000 + display number). Starts from the same checkout build one after another, then load in parallel. A room offers only as many players as it has characters (GameOfGames: two); rooms without Join Game (SystemRecovery) run the host only.
 
 ## 2. Play: state → act → state
 
