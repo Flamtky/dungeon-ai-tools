@@ -45,7 +45,7 @@ Handle every new event in the wake message, then end the turn. A wake is done wh
 
   When the only gap is an asked reviewer who has not reviewed yet, ask the user through the input tool whether to merge without that review or wait, naming the reviewer.
 
-  Where the request keeps the merge with the user: tell them once that the PR is ready, and keep watching. Otherwise wait 30 seconds with a one-off background command and read the state once more. Merged: finish. Still settled: merge with the repository's method. A stack merges once every layer up to the chosen one is settled, with `gh stack merge <top PR number>`, which merges from the bottom up in one step; `gh stack merge` reads a bare number as a stack number first, then as a PR number. Anything else: keep watching.
+  Where the request keeps the merge with the user: tell them once that the PR is ready, and keep watching. Otherwise wait 30 seconds with a one-off background command and read the state once more. Merged: finish. Still settled: merge with the repository's method. A stack merges once every layer up to the chosen one is settled, with `gh stack merge <top PR number>`, which merges from the bottom up in one step. `gh stack merge` reads a bare number as a stack number first: when a stack with that number exists, merge the whole stack by its stack number instead, or ask the user if only part of it should merge. Anything else: keep watching.
 - **Merged or closed**: call `unwatch_pull_request` and finish with a summary of fixes pushed, text posted or still drafted, and decisions the user made.
 
 ## Status
