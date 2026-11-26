@@ -28,6 +28,7 @@
 #                                       (default 30 s)
 #   record <seconds> <file.mp4>         video (blocks; run with & to act meanwhile)
 #   sheet <file.mp4> <file.png> [fps]   contact sheet of a video
+#   view [off]                          window on the user's desktop that shows the display live; off closes it
 # Act (game coordinates are tiles, screen coordinates are window pixels = screenshot pixels)
 #   goto <x> <y> | goto #<id>           walk there along a path (real input); #id stops in interaction range
 #   interact #<id> | interact <x> <y>   interact with an entity or point; an out-of-range #id is an error
@@ -54,6 +55,8 @@ SHARED="$(cd "$SKILL/../dungeon-play" && pwd)"
 if [[ -n "${JAVA_HOME:-}" ]]; then JDK="$JAVA_HOME"
 elif [[ -d /usr/lib/jvm/temurin-25-jdk-amd64 ]]; then JDK=/usr/lib/jvm/temurin-25-jdk-amd64
 else JDK="$(dirname "$(dirname "$(readlink -f "$(command -v javac || echo javac)")")")"; fi
+# The user's own desktop, where `view` opens its window; DISPLAY below is the game's.
+USER_DISPLAY="${DISPLAY:-}"
 # Points every per-display variable at display :$1.
 use_display() {
   DISP=":$1"; STATE="/tmp/dungeon-play/$DISP"; export DISPLAY="$DISP"
@@ -162,10 +165,25 @@ click_widget() {
 }
 
 render() { if chan_ok "$STATE/game"; then req "$STATE/game" 5 render "$1" >/dev/null || true; fi; }
-# Scene rendering for a capture; off again on exit unless a recording still runs or it is always on.
+# Prints the pid of this display's view while it runs.
+view_pid() {
+  local pid; pid="$(cat "$STATE/view.pid" 2>/dev/null)" || return 1
+  tr '\0' '\n' 2>/dev/null <"/proc/$pid/cmdline" | grep -qxF "dungeon-play $DISP" && echo "$pid"
+}
+# Scene rendering off again, unless a capture or the view still needs it or it is always on.
+render_off() {
+  [[ "${DUNGEON_PLAY_RENDER:-}" == always ]] || compgen -G "$STATE/capture.*" >/dev/null || view_pid >/dev/null || render off
+}
+# Ends the view: the window and the process that waits for it to close.
+close_view() {
+  local pid
+  if pid="$(view_pid)"; then kill -- "-$pid" 2>/dev/null || true; fi
+  rm -f "$STATE/view.pid"
+}
+# Scene rendering for a capture, which marks itself so that no other command turns the scene off under it.
 capture_render() {
-  render on
-  [[ "${DUNGEON_PLAY_RENDER:-}" == always ]] || trap '[[ -e "$STATE/recording" ]] || render off' EXIT
+  touch "$STATE/capture.$$"; render on
+  trap 'rm -f "$STATE/capture.$$"; render_off' EXIT
 }
 
 # Event lines "<epoch-ms> <text>" of this game and, for a joined client, of its server; sorted.
@@ -220,6 +238,8 @@ launch() {  # launch <window|server> <task> [gradle args]
   setsid Xvfb "$DISP" -screen 0 "${SIZE}x24" -nolisten tcp >"$STATE/xvfb.log" 2>&1 &
   echo $! >"$STATE/xvfb.pid"
   for _ in $(seq 50); do xdotool getdisplaygeometry >/dev/null 2>&1 && break; sleep 0.1; done
+  # The game opens no audio device, so nobody hears it; DUNGEON_PLAY_SOUND=1 plays it aloud.
+  [[ "${DUNGEON_PLAY_SOUND:-}" == 1 ]] || export ALSOFT_DRIVERS=null
   # Gradle builds in one checkout race on game/build, so they take turns; the lock is released
   # once the game JVM runs, and the games themselves start in parallel.
   exec 8>"/tmp/dungeon-play/build.$(pwd -P | md5sum | cut -c1-16).lock"
@@ -357,10 +377,31 @@ case "$cmd" in
   god)  need_game; auth_req god "$([[ "${1:-on}" == off ]] && echo off || echo on)" ;;
   kill) need_game; auth_req kill "${1#\#}" ;;
   record)
-    touch "$STATE/recording"; render on
-    trap 'rm -f "$STATE/recording"; [[ "${DUNGEON_PLAY_RENDER:-}" == always ]] || render off' EXIT
+    capture_render
     ffmpeg -loglevel error -y -f x11grab -draw_mouse 0 -framerate 30 -video_size "$SIZE" -i "$DISP" \
       -t "$1" -pix_fmt yuv420p "$2" ;;
+  view)
+    if [[ "${1:-}" == off ]]; then
+      # A closed window calls this; by then a newer view may own the display.
+      [[ -z "${DUNGEON_PLAY_VIEW:-}" || "$DUNGEON_PLAY_VIEW" == "$(cat "$STATE/view.pid" 2>/dev/null)" ]] || exit 0
+      close_view; render_off
+      echo "view on $DISP closed"
+    else
+      need_game
+      [[ -n "$USER_DISPLAY${WAYLAND_DISPLAY:-}" ]] || die "view needs a desktop: neither DISPLAY nor WAYLAND_DISPLAY is set"
+      command -v ffplay >/dev/null || die "view needs ffplay"
+      if view_pid >/dev/null; then echo "view on $DISP is already open"; exit 0; fi
+      render on
+      # The window plays a live grab of the display in a session of its own; closing it ends the view.
+      DUNGEON_PLAY_DISPLAY="$DISP" DISPLAY="$USER_DISPLAY" setsid bash -c \
+        '"$@"; DUNGEON_PLAY_VIEW=$$ exec "$0" --force view off' "$(readlink -f "$0")" \
+        ffplay -loglevel error -window_title "dungeon-play $DISP" -fflags nobuffer -flags low_delay \
+        -f x11grab -draw_mouse 1 -framerate 30 -video_size "$SIZE" -i "$DISP" >"$STATE/view.log" 2>&1 &
+      echo $! >"$STATE/view.pid"
+      sleep 1
+      view_pid >/dev/null || { close_view; render_off; die "ffplay did not stay open; log: $STATE/view.log"; }
+      echo "view on $DISP opened; close it with: dungeon-play view off"
+    fi ;;
   sheet)
     ffmpeg -loglevel error -y -i "${1:?video}" -vf "fps=${3:-2},scale=320:-1,tile=4x3" -frames:v 1 "${2:?png}"
     echo "$2" ;;
@@ -440,6 +481,7 @@ case "$cmd" in
     if [[ -f "$STATE/peers" ]]; then
       while read -r peer; do DUNGEON_PLAY_DISPLAY="$peer" "$0" stop || true; done <"$STATE/peers"
     fi
+    close_view
     if [[ -f "$STATE/window" ]]; then xdotool windowclose "$(cat "$STATE/window")" 2>/dev/null || true; fi
     # Wait for the windowed game JVM to finish closing (the level editor saves then); a hosted
     # server it started keeps running on its own and is ended below.

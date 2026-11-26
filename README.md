@@ -13,7 +13,7 @@ places where the agents look for them, so `git pull` here is the whole update.
 | `dungeon/wizard/AGENTS.md` | Rules for Wizard and Foundation-runtime work | `<Dungeon>/wizard/AGENTS.md` |
 | `dungeon/docs/agents/issue-tracker.md` | How agents read issues | `<Dungeon>/docs/agents/issue-tracker.md` |
 | `skills/dungeon-play` | Play the game in a background window on Windows: input, state as text, screenshots, video | skill folder |
-| `skills/dungeon-play-linux` | The same on a headless Linux machine through Xvfb; uses the in-game hook of `skills/dungeon-play` | skill folder, as `dungeon-play` |
+| `skills/dungeon-play-linux` | The same on Linux through Xvfb, out of sight and silent, with a live window on request; uses the in-game hook of `skills/dungeon-play` | skill folder, as `dungeon-play` |
 | `skills/dungeon-pr-review` | Review workflow for Dungeon pull requests | skill folder |
 | `skills/dungeon-dependabot` | Merge workflow for Dependabot pull requests, for maintainers | skill folder |
 | `skills/ready-check` | Check a branch before its PR goes ready for review: local pipeline, change ledger, minimal-diff pass | skill folder |
@@ -53,6 +53,7 @@ contain the linked files; agents read them from the main checkout.
   `~/.local/bin` on `PATH`.
 - `dungeon-play` on Linux: `Xvfb`, `xdotool`, `ffmpeg`, the JDK Dungeon builds with, and
   `~/.local/bin` on `PATH`.
+  The live window of `dungeon-play view` needs a desktop and `ffplay`.
 - `dungeon-play` has no macOS driver; on a Mac, `install.sh` leaves it out.
 - `dungeon-pr-review` and `dungeon-dependabot`: an authenticated `gh`.
 - `ready-check`, `ship`, `babysit`, `gh-stack`: an authenticated `gh`, for `gh-stack` with the
