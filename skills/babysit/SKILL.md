@@ -16,7 +16,7 @@ The babysit request sets them, for this PR only:
 - **Re-requesting a review** from a reviewer whose review you addressed needs no grant: once every thread of that review is fixed and pushed, request it again with `gh pr edit <n> --add-reviewer <login>`.
 - **PR description**: when a pushed fix makes it inaccurate, update the affected part without asking; it describes the branch, so keeping it current is part of the fix.
 - **Resolving a review thread** posts no text: resolve it once its point is fixed in a pushed commit. A resolved thread needs no reply; the commit and the resolution say it is done.
-- **Merging** a **settled** PR (see Wake) is part of babysitting, unless the request keeps the merge with the user. Closing and rewriting reviewed history stay with the user.
+- **Merging** a **settled** PR (see Wake) is part of babysitting, unless the request keeps the merge with the user. Only an explicit statement in the babysit request or later counts; earlier remarks, such as one made while the PR was a draft, do not. Closing and rewriting reviewed history stay with the user.
 
 ## Start
 
@@ -43,7 +43,9 @@ Handle every new event in the wake message, then end the turn. A wake is done wh
   - nothing is open: every review thread is resolved, every question on the PR is answered, and no question to the user and no draft waits for the user.
   - the PR is open and ready for review, its required checks are green, and GitHub's merge rules are met.
 
-  Where the request keeps the merge with the user: tell them once that the PR is ready, and keep watching. Otherwise wait 30 seconds with a one-off background command and read the state once more. Merged: finish. Still settled: merge with the repository's method; a PR in a stack only as its bottom open layer, with `gh stack merge <n>`. Anything else: keep watching.
+  When the only gap is an asked reviewer who has not reviewed yet, ask the user through the input tool whether to merge without that review or wait, naming the reviewer.
+
+  Where the request keeps the merge with the user: tell them once that the PR is ready, and keep watching. Otherwise wait 30 seconds with a one-off background command and read the state once more. Merged: finish. Still settled: merge with the repository's method. A stack merges once every layer up to the chosen one is settled, with `gh stack merge <top PR number>`, which merges from the bottom up in one step; `gh stack merge` reads a bare number as a stack number first, then as a PR number. Anything else: keep watching.
 - **Merged or closed**: call `unwatch_pull_request` and finish with a summary of fixes pushed, text posted or still drafted, and decisions the user made.
 
 ## Status
