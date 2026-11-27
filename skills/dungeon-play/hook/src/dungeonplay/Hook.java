@@ -77,7 +77,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import java.util.zip.Deflater;
 import org.lwjgl.glfw.GLFW;
+import org.lwjgl.glfw.GLFWCharCallback;
+import org.lwjgl.glfw.GLFWCursorPosCallback;
+import org.lwjgl.glfw.GLFWKeyCallback;
+import org.lwjgl.glfw.GLFWMouseButtonCallback;
 import org.lwjgl.glfw.GLFWNativeWin32;
+import org.lwjgl.glfw.GLFWScrollCallback;
+import org.lwjgl.glfw.GLFWWindowCloseCallback;
 import org.lwjgl.openal.AL10;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.system.windows.User32;
@@ -195,13 +201,16 @@ public final class Hook {
     try {
       // A GPU renders the scene at full speed, so only the software GL of a virtual display is gated.
       if (WINDOWS) Desk.keep();
-      else ensureRenderGate();
+      else {
+        ensureRenderGate();
+        Desk.mark();
+      }
       ensureSoundLog();
     } catch (Exception e) {
       if (!gateFailed) e.printStackTrace();
       gateFailed = true;
     }
-    if (WINDOWS) Recording.frame();
+    Recording.frame();
     tick();
     Gdx.app.postRunnable(Hook::frame);
   }
@@ -346,8 +355,8 @@ public final class Hook {
   }
 
   /**
-   * A file argument; play.ps1 sends {@code |} for each space and {@code ?} for each equals sign,
-   * play.sh sends the path as it is.
+   * A file argument; play.ps1, and play.sh for a desktop window's shot and record, send {@code |}
+   * for each space and {@code ?} for each equals sign; play.sh sends look's directory as it is.
    */
   private static String file(String s) {
     return s.replace('|', ' ').replace('?', '=');
@@ -454,7 +463,7 @@ public final class Hook {
               UIComponent ui = e.fetch(UIComponent.class).orElseThrow();
               o.append("dialog ")
                   .append(ui.dialogContext().dialogType())
-                  .append(ui.isVisible() ? "" : " (hidden)")
+                  .append(shown(ui))
                   .append(attributes(ui.dialogContext().attributes()))
                   .append('\n');
               // Containers the dialog shows (chest, second player); the hero's own is listed above.
@@ -471,6 +480,23 @@ public final class Hook {
     List<String> w = widgets().stream().limit(MAX_WIDGETS).map(Widget::show).toList();
     if (!w.isEmpty()) o.append("ui ").append(String.join(" | ", w)).append('\n');
     return o.toString();
+  }
+
+  /**
+   * Whether the dialog shows. Asking builds the dialog, and one the game could not build (a missing
+   * image) throws on every ask; uncaught on the game thread, that would end the game.
+   */
+  private static boolean visible(UIComponent ui) {
+    return shown(ui).isEmpty();
+  }
+
+  /** The state suffix of a dialog line: nothing, hidden, or why the game could not build it. */
+  private static String shown(UIComponent ui) {
+    try {
+      return ui.isVisible() ? "" : " (hidden)";
+    } catch (RuntimeException e) {
+      return " (not built: " + String.valueOf(e.getMessage()).replaceAll("\\s+", " ") + ")";
+    }
   }
 
   /** Filled slots as {@code [slot] name}; {@code -} when empty. */
@@ -620,7 +646,7 @@ public final class Hook {
     List<String> types =
         Game.entities(Set.of(UIComponent.class))
             .map(e -> e.fetch(UIComponent.class).orElseThrow())
-            .filter(ui -> ui.isVisible()
+            .filter(ui -> visible(ui)
                 && (ui.willPauseGame() || ui.dialogContext().find(DialogContextKeys.BLOCKS_GAMEPLAY_INPUT, Boolean.class).orElse(false)))
             .map(ui -> String.valueOf(ui.dialogContext().dialogType()))
             .distinct()
@@ -693,7 +719,7 @@ public final class Hook {
       Optional<UIComponent> top =
           Game.entities(Set.of(UIComponent.class))
               .map(e -> e.fetch(UIComponent.class).orElseThrow())
-              .filter(ui -> ui.isVisible() && (ui.canBeClosed() || UIUtils.hasCloseRequestHandler(ui.dialog())))
+              .filter(ui -> visible(ui) && (ui.canBeClosed() || UIUtils.hasCloseRequestHandler(ui.dialog())))
               .max(java.util.Comparator.comparingInt(ui -> ui.dialog().getZIndex()));
       if (top.isEmpty()) {
         // The next dialog of a chain may follow after a delay (callback to the server, story timer).
@@ -1113,14 +1139,18 @@ public final class Hook {
     Game.add(new RenderGate());
   }
 
-  // ---- Windows desktop (game process)
+  // ---- desktop window (game process)
 
   /**
-   * The game window on the user's Windows desktop. It stays behind the other windows, never takes
+   * The game window on the user's desktop. On Windows it stays behind the other windows, never takes
    * the keyboard focus, lets the real mouse through to whatever lies beneath and plays no sound, so
    * the user and the games of other agents go undisturbed. Input arrives as window messages posted to this window alone: it needs
    * no focus and moves no real cursor. Screenshots read the frame the window presented last, so
    * covering windows do not show in them.
+   *
+   * <p>On Linux (play.sh with DUNGEON_PLAY_DESKTOP) the window is an ordinary one that the window
+   * manager places. Input goes straight to libGDX's own GLFW callbacks, so it needs no focus and
+   * moves no real cursor either.
    */
   private static final class Desk {
     private static final long HWND_BOTTOM = 1;
@@ -1198,6 +1228,15 @@ public final class Hook {
       if (!PreRunConfiguration.disableAudio()) AL10.alListenerf(AL10.AL_GAIN, 0);
     }
 
+    private static boolean marked;
+
+    /** A Linux desktop window says in its title which game it is and that an agent drives it. */
+    static void mark() {
+      if (marked || !"1".equals(System.getenv("DUNGEON_PLAY_DESKTOP"))) return;
+      marked = true;
+      Gdx.graphics.setTitle(Game.windowTitle() + " [dungeon-play " + dir.getParent().getFileName() + ", driven by an agent]");
+    }
+
     /**
      * Presses or releases a key named as in {@link Input.Keys} (E, Escape, Enter, Space, Left, F4,
      * L-Shift) or by one of the aliases below.
@@ -1212,11 +1251,17 @@ public final class Hook {
             case "shift" -> "L-Shift";
             case "ctrl", "control" -> "L-Ctrl";
             case "alt" -> "L-Alt";
-            default -> name;
+            // A name with a space would not survive the request line: Page_Up.
+            default -> name.replace('_', ' ');
           };
       DefaultLwjgl3Input input = (DefaultLwjgl3Input) Gdx.input;
       for (int key = GLFW.GLFW_KEY_SPACE; key <= GLFW.GLFW_KEY_LAST; key++) {
         if (!wanted.equalsIgnoreCase(Input.Keys.toString(input.getGdxKeyCode(key)))) continue;
+        if (!WINDOWS) {
+          Desk.<GLFWKeyCallback>callback(Gdx.input, "keyCallback")
+              .invoke(window(), key, GLFW.glfwGetKeyScancode(key), down ? GLFW.GLFW_PRESS : GLFW.GLFW_RELEASE, 0);
+          return;
+        }
         // Letters, digits and space carry their virtual key, so Windows adds the typed character.
         long virtualKey = key == ' ' || (key >= '0' && key <= '9') || (key >= 'A' && key <= 'Z') ? key : 0;
         long keystroke = 1L | (long) (GLFW.glfwGetKeyScancode(key) & 0x1FF) << 16;
@@ -1227,7 +1272,10 @@ public final class Hook {
     }
 
     static void type(String text) {
-      for (char c : text.toCharArray()) post(WM_CHAR, c, 1);
+      for (char c : text.toCharArray()) {
+        if (WINDOWS) post(WM_CHAR, c, 1);
+        else Desk.<GLFWCharCallback>callback(Gdx.input, "charCallback").invoke(window(), c);
+      }
     }
 
     /** Empties the focused text field: End, then n backspaces. */
@@ -1243,11 +1291,24 @@ public final class Hook {
     static void move(int x, int y) {
       mouseX = x;
       mouseY = y;
-      post(WM_MOUSEMOVE, 0, point());
+      if (WINDOWS) post(WM_MOUSEMOVE, 0, point());
+      else Desk.<GLFWCursorPosCallback>callback(Gdx.input, "cursorPosCallback").invoke(window(), x, y);
     }
 
     /** Presses or releases a mouse button at the last position: 1 left, 2 middle, 3 right. */
     static void button(int button, boolean down) {
+      if (!WINDOWS) {
+        int glfw =
+            switch (button) {
+              case 1 -> GLFW.GLFW_MOUSE_BUTTON_LEFT;
+              case 2 -> GLFW.GLFW_MOUSE_BUTTON_MIDDLE;
+              case 3 -> GLFW.GLFW_MOUSE_BUTTON_RIGHT;
+              default -> throw new IllegalArgumentException("mouse button " + button + " (1 left, 2 middle, 3 right)");
+            };
+        Desk.<GLFWMouseButtonCallback>callback(Gdx.input, "mouseButtonCallback")
+            .invoke(window(), glfw, down ? GLFW.GLFW_PRESS : GLFW.GLFW_RELEASE, 0);
+        return;
+      }
       int message =
           switch (button) {
             case 1 -> 0x201;
@@ -1260,12 +1321,34 @@ public final class Hook {
 
     /** Turns the wheel; positive notches scroll up. */
     static void wheel(int notches) {
-      post(WM_MOUSEWHEEL, (long) (notches * 120 & 0xFFFF) << 16, 0);
+      if (WINDOWS) post(WM_MOUSEWHEEL, (long) (notches * 120 & 0xFFFF) << 16, 0);
+      else Desk.<GLFWScrollCallback>callback(Gdx.input, "scrollCallback").invoke(window(), 0, notches);
     }
 
     /** Closes the window as its close button would, so the game shuts down in order. */
     static void close() {
-      post(WM_CLOSE, 0, 0);
+      if (WINDOWS) post(WM_CLOSE, 0, 0);
+      else {
+        // As GLFW does for the window's close button: the flag, then libGDX's callback, which asks the game.
+        GLFW.glfwSetWindowShouldClose(window(), true);
+        Desk.<GLFWWindowCloseCallback>callback(((Lwjgl3Graphics) Gdx.graphics).getWindow(), "closeCallback").invoke(window());
+      }
+    }
+
+    private static long window() {
+      return ((Lwjgl3Graphics) Gdx.graphics).getWindow().getWindowHandle();
+    }
+
+    /** One of the GLFW callbacks libGDX registered, by the field of its input or window that holds it. */
+    @SuppressWarnings("unchecked")
+    private static <T> T callback(Object owner, String name) {
+      try {
+        Field field = owner.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        return (T) field.get(owner);
+      } catch (ReflectiveOperationException e) {
+        throw new IllegalStateException(e);
+      }
     }
 
     private static long point() {
@@ -1277,8 +1360,9 @@ public final class Hook {
       User32.PostMessage(hwnd, message, wParam, lParam);
     }
 
+    /** Fails before the window is set up; a Linux window needs no setup. */
     static void need() {
-      if (hwnd == 0) throw new IllegalStateException("only a game window on Windows takes this command");
+      if (WINDOWS && hwnd == 0) throw new IllegalStateException("the game window is not set up yet");
     }
 
     /** Writes the frame the window presented last as a PNG; crop is x,y,w,h in pixels, zoom scales it. */

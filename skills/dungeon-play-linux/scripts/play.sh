@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
-# Drive a Dungeon game on a virtual X display. Installed as `dungeon-play` on PATH.
+# Drive a Dungeon game on a virtual X display, or in a window on the user's desktop when `start` or `mp`
+# runs with DUNGEON_PLAY_DESKTOP=1. Installed as `dungeon-play` on PATH.
 # One game per display. `start`, `server` and `mp` take the first free display from :100 on unless
 # DUNGEON_PLAY_DISPLAY is set and print it; every later command needs DUNGEON_PLAY_DISPLAY=<that display>.
 # The game's network port is 50000 + display number unless DUNGEON_PLAY_PORT is set on `start`.
+# A desktop game keeps such a display number as its name, though no virtual display stands behind it. Its
+# input goes into the game process, so it needs no focus and leaves the user's mouse alone; `key` then
+# takes libGDX key names (E, Escape, Enter, Space, Left, F4, L-Shift, Page_Up).
 # Run `start` from the checkout or worktree under test. State and logs: /tmp/dungeon-play/<display>/ (kept as .last after stop).
 # A display belongs to the Git checkout that started its game: later commands, `stop` included, refuse to
 # run from another checkout unless called as `dungeon-play --force <command>`.
 #
 # Lifecycle
-#   start <gradle-task> [gradle args]   Xvfb + game; returns once the game renders
+#   start <gradle-task> [gradle args]   Xvfb (or a desktop window) + game; returns once the game renders
 #   mp <gradle-task> <host-name|-> <name>...   host on this display, one joined client per name on the
 #                                       next displays; returns once every hero is in the game
 #   server <gradle-task> [gradle args]  dedicated server (e.g. run<Room>Server); returns once it runs
@@ -29,6 +33,7 @@
 #   record <seconds> <file.mp4>         video (blocks; run with & to act meanwhile)
 #   sheet <file.mp4> <file.png> [fps]   contact sheet of a video
 #   view [off]                          window on the user's desktop that shows the display live; off closes it
+#                                       (virtual displays only)
 # Act (game coordinates are tiles, screen coordinates are window pixels = screenshot pixels)
 #   goto <x> <y> | goto #<id>           walk there along a path (real input); #id stops in interaction range
 #   interact #<id> | interact <x> <y>   interact with an entity or point; an out-of-range #id is an error
@@ -55,11 +60,15 @@ SHARED="$(cd "$SKILL/../dungeon-play" && pwd)"
 if [[ -n "${JAVA_HOME:-}" ]]; then JDK="$JAVA_HOME"
 elif [[ -d /usr/lib/jvm/temurin-25-jdk-amd64 ]]; then JDK=/usr/lib/jvm/temurin-25-jdk-amd64
 else JDK="$(dirname "$(dirname "$(readlink -f "$(command -v javac || echo javac)")")")"; fi
-# The user's own desktop, where `view` opens its window; DISPLAY below is the game's.
-USER_DISPLAY="${DISPLAY:-}"
+# The user's own desktop, where `view` and a desktop game open their window; DISPLAY below is the game's.
+# Exported, because the commands `mp` and `stop` run on further displays inherit that DISPLAY.
+export DUNGEON_PLAY_USER_DISPLAY="${DUNGEON_PLAY_USER_DISPLAY-${DISPLAY:-}}"
+USER_DISPLAY="$DUNGEON_PLAY_USER_DISPLAY"
 # Points every per-display variable at display :$1.
 use_display() {
-  DISP=":$1"; STATE="/tmp/dungeon-play/$DISP"; export DISPLAY="$DISP"
+  DISP=":$1"; STATE="/tmp/dungeon-play/$DISP"
+  # A desktop game's window is on the user's display; the number only names the game.
+  if [[ -e "$STATE/desktop" ]]; then DESKTOP=1; export DISPLAY="$USER_DISPLAY"; else DESKTOP=""; export DISPLAY="$DISP"; fi
   SIZE="$(cat "$STATE/size" 2>/dev/null || echo "${DUNGEON_PLAY_SIZE:-1280x750}")"
   PORT="${DUNGEON_PLAY_PORT:-$((50000 + $1))}"
 }
@@ -73,7 +82,9 @@ checkout() { git rev-parse --show-toplevel 2>/dev/null || pwd -P; }
 taken() {
   # Xvfb takes over a display whose lock names a dead process (left by a killed X server).
   local x; x="$(tr -d ' ' 2>/dev/null <"/tmp/.X$1-lock" || true)"
-  if [[ -n "$x" && -d "/proc/$x" ]] || [[ -z "$x" && -e "/tmp/.X11-unix/X$1" ]]; then echo "display :$1 is taken"
+  # A desktop game holds its number without an X server: until `stop`, which moves its state away.
+  if [[ -d "/tmp/dungeon-play/:$1" ]]; then echo "display :$1 is taken"
+  elif [[ -n "$x" && -d "/proc/$x" ]] || [[ -z "$x" && -e "/tmp/.X11-unix/X$1" ]]; then echo "display :$1 is taken"
   elif [[ -n "${2:-}" && -n "$(ss -Hltn "sport = :$2" 2>/dev/null)" ]]; then echo "port $2 of display :$1 is in use"; fi
 }
 alive() { [[ -f "$STATE/$1.pid" ]] && kill -0 "$(cat "$STATE/$1.pid")" 2>/dev/null; }
@@ -90,6 +101,12 @@ need_game() {
 focus() { need_game; xdotool windowfocus --sync "$(win)"; }
 
 chan_ok() { [[ -f "$1/pid" ]] && kill -0 "$(cat "$1/pid")" 2>/dev/null; }
+# A path as the hook's file argument, which is split at spaces and takes x=y as an option.
+enc() { local p="${1// /|}"; echo "${p//=/?}"; }
+# Refuses a path that enc cannot carry: | and ? stand for other characters, a control character splits it.
+plain_path() { [[ "$1" != *[\|?[:cntrl:]]* ]] || die "a desktop game's file path must not contain |, ? or control characters: $1"; }
+# The absolute path of a file that may not exist yet; creates its directory.
+abs() { mkdir -p "$(dirname "$1")"; echo "$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"; }
 
 # req <channel-dir> <timeout-s> <command...>: one request to the in-game hook, prints the answer.
 req() {
@@ -106,6 +123,9 @@ req() {
   echo "no answer from the game within ${timeout}s (frozen or still loading?); the command was not run" >&2
   return 1
 }
+
+# hook <command...>: input for a desktop game, sent into the game process; fails on the hook's error.
+hook() { need_game; local r; r="$(req "$STATE/game" "${HOOK_TIMEOUT:-10}" "$@")" || exit 1; [[ "$r" != error* ]] || die "$r"; }
 
 # The process with world authority: the game itself (single process) or the hosted/dedicated server.
 server_chan() {
@@ -160,7 +180,7 @@ click_widget() {
     ((n-- > 0)) || die "$xy (waited 15 s)"
     need_game; sleep 0.25
   done
-  xdotool mousemove ${xy} click 1
+  if [[ -n "$DESKTOP" ]]; then hook click ${xy} 1; else xdotool mousemove ${xy} click 1; fi
   echo "$xy"
 }
 
@@ -170,9 +190,9 @@ view_pid() {
   local pid; pid="$(cat "$STATE/view.pid" 2>/dev/null)" || return 1
   tr '\0' '\n' 2>/dev/null <"/proc/$pid/cmdline" | grep -qxF "dungeon-play $DISP" && echo "$pid"
 }
-# Scene rendering off again, unless a capture or the view still needs it or it is always on.
+# Scene rendering off again, unless a capture or the view still needs it or it is always on (desktop game).
 render_off() {
-  [[ "${DUNGEON_PLAY_RENDER:-}" == always ]] || compgen -G "$STATE/capture.*" >/dev/null || view_pid >/dev/null || render off
+  [[ -n "$DESKTOP" || "${DUNGEON_PLAY_RENDER:-}" == always ]] || compgen -G "$STATE/capture.*" >/dev/null || view_pid >/dev/null || render off
 }
 # Ends the view: the window and the process that waits for it to close.
 close_view() {
@@ -235,9 +255,16 @@ launch() {  # launch <window|server> <task> [gradle args]
   rm -rf "$STATE"; mkdir -p "$STATE/pids"; echo "$SIZE" >"$STATE/size"; checkout >"$STATE/owner"
   # Xvfb and Gradle run in their own session: agent shells that end a command's process group
   # when the command returns (Codex) would otherwise end the game with `start`.
-  setsid Xvfb "$DISP" -screen 0 "${SIZE}x24" -nolisten tcp >"$STATE/xvfb.log" 2>&1 &
-  echo $! >"$STATE/xvfb.pid"
-  for _ in $(seq 50); do xdotool getdisplaygeometry >/dev/null 2>&1 && break; sleep 0.1; done
+  if [[ "${DUNGEON_PLAY_DESKTOP:-}" == 1 && "$mode" == window ]]; then
+    [[ -n "$USER_DISPLAY${WAYLAND_DISPLAY:-}" ]] || die "a desktop game needs a desktop: neither DISPLAY nor WAYLAND_DISPLAY is set"
+    touch "$STATE/desktop"; use_display "$d"
+    # A GPU draws the scene at full speed, so the hook's render gate stays open.
+    export DUNGEON_PLAY_RENDER=always
+  else
+    setsid Xvfb "$DISP" -screen 0 "${SIZE}x24" -nolisten tcp >"$STATE/xvfb.log" 2>&1 &
+    echo $! >"$STATE/xvfb.pid"
+    for _ in $(seq 50); do xdotool getdisplaygeometry >/dev/null 2>&1 && break; sleep 0.1; done
+  fi
   # The game opens no audio device, so nobody hears it; DUNGEON_PLAY_SOUND=1 plays it aloud.
   [[ "${DUNGEON_PLAY_SOUND:-}" == 1 ]] || export ALSOFT_DRIVERS=null
   # Gradle builds in one checkout race on game/build, so they take turns; the lock is released
@@ -255,7 +282,9 @@ launch() {  # launch <window|server> <task> [gradle args]
     sleep 0.5
   done
   chan_ok "$chan" || die "game did not come up within 300 s; log: $STATE.last/game.log"
-  if [[ "$mode" == window ]]; then
+  if [[ -n "$DESKTOP" ]]; then
+    echo "desktop window on DUNGEON_PLAY_DISPLAY=$DISP, port $PORT; log: $STATE/game.log"
+  elif [[ "$mode" == window ]]; then
     local w=""
     for _ in $(seq 40); do w=$(xdotool search --onlyvisible --name . 2>/dev/null | head -1 || true); [[ -n "$w" ]] && break; sleep 0.25; done
     [[ -n "$w" ]] || die "game runs but no window appeared; log: $STATE.last/game.log"
@@ -284,6 +313,40 @@ esac
 case "$cmd" in
   key|type|click|drag|scroll|press|fill|goto|interact|skip|tp|give|hp|kill) { date +%s%3N >"$STATE/acted"; } 2>/dev/null || true ;;
 esac
+# A desktop game takes input and captures inside its own process; the commands below replace the
+# xdotool and x11grab ones further down.
+if [[ -n "$DESKTOP" ]]; then
+  case "$cmd" in
+    key)    HOOK_TIMEOUT="$(awk -v s="${2:-0}" 'BEGIN { printf "%d", s + 10 }')" hook key "${1:?key name}" "$(awk -v s="${2:-0.08}" 'BEGIN { printf "%d", s * 1000 }')"; exit ;;
+    type)   hook type "${1:?text}"; exit ;;
+    click)  hook click "${1:?x}" "${2:?y}" "${3:-1}"; exit ;;
+    mouse)  hook mouse "${1:?x}" "${2:?y}"; exit ;;
+    drag)   hook drag "${1:?x1}" "${2:?y1}" "${3:?x2}" "${4:?y2}"; exit ;;
+    scroll) for _ in $(seq "${2:-1}"); do hook scroll "$([[ "${1:?up or down}" == up ]] && echo 1 || echo -1)"; done; exit ;;
+    press)  need_game; xy="$(click_widget "$*")"; echo "clicked $xy"; exit ;;
+    fill)
+      need_game
+      xy="$(click_widget "${1?text of the field (empty: first field)}")"
+      hook erase $(( ${#1} + 30 )); hook type "${2:?new text}"
+      echo "filled $xy"; exit ;;
+    shot)
+      need_game
+      plain_path "${1:?file.png}"; out="$(abs "$1")"; plain_path "$out"; shift; opts=()
+      while (($#)); do case "$1" in --crop|--zoom) opts+=("${1#--}=${2:?value of $1}"); shift 2 ;; *) die "unknown option $1" ;; esac; done
+      # Hook round trips = whole frames rendered after the last input (hover, tooltips).
+      for _ in 1 2 3; do req "$STATE/game" 5 ping >/dev/null; done
+      hook shot "$(enc "$out")" "${opts[@]}"
+      print_state; exit ;;
+    record)
+      plain_path "${2:?file.mp4}"; out="$(abs "$2")"; plain_path "$out"
+      hook record "${1:?seconds}" "$(enc "$out")"
+      # The hook writes <file>.part and renames it once the video is complete.
+      while [[ -e "$out.part" ]]; do need_game; sleep 0.25; done
+      [[ -f "$out" ]] || die "the recording failed (ffmpeg); log: $STATE/game.log"
+      exit ;;
+    view) die "the game on $DISP already is a window on the desktop; view shows virtual displays" ;;
+  esac
+fi
 case "$cmd" in
   start)  launch window "$@" ;;
   server) launch server "$@" ;;
@@ -455,7 +518,8 @@ case "$cmd" in
       die "start failed"
     fi
     # From here on, stop on the host also stops the joined clients.
-    for d in "${joiners[@]}"; do echo ":$d" >>"$STATE/peers"; done
+    # Each peer's state names its host: a later game on that number has new state and is none of its peers.
+    for d in "${joiners[@]}"; do echo ":$d" >>"$STATE/peers"; { echo "$DISP" >"/tmp/dungeon-play/:$d/host"; } 2>/dev/null || true; done
     trap 'rm -rf "$out"; on "$base" stop >/dev/null 2>&1 || true' EXIT
     # The menu's labels in the room's language; rooms may rename Host Game or have no Join Game.
     labels="$(on "$base" menu)"; [[ "$labels" != error* ]] || die "$labels"
@@ -479,10 +543,13 @@ case "$cmd" in
   stop)
     [[ -d "$STATE" ]] || die "nothing running on $DISP"
     if [[ -f "$STATE/peers" ]]; then
-      while read -r peer; do DUNGEON_PLAY_DISPLAY="$peer" "$0" stop || true; done <"$STATE/peers"
+      while read -r peer; do
+        [[ "$(cat "/tmp/dungeon-play/$peer/host" 2>/dev/null)" != "$DISP" ]] || DUNGEON_PLAY_DISPLAY="$peer" "$0" stop || true
+      done <"$STATE/peers"
     fi
     close_view
-    if [[ -f "$STATE/window" ]]; then xdotool windowclose "$(cat "$STATE/window")" 2>/dev/null || true; fi
+    if [[ -n "$DESKTOP" ]]; then { chan_ok "$STATE/game" && req "$STATE/game" 5 quit >/dev/null 2>&1; } || true
+    elif [[ -f "$STATE/window" ]]; then xdotool windowclose "$(cat "$STATE/window")" 2>/dev/null || true; fi
     # Wait for the windowed game JVM to finish closing (the level editor saves then); a hosted
     # server it started keeps running on its own and is ended below.
     game_jvm() { local f; for f in "$STATE"/pids/*; do [[ "$(cat "$f" 2>/dev/null)" == game ]] && kill -0 "${f##*/}" 2>/dev/null && return 0; done; return 1; }

@@ -1,6 +1,6 @@
 ---
 name: dungeon-play
-description: Play the Dungeon game on Linux through a virtual display, out of the user's sight and hearing: send keys and clicks, take screenshots, record video, show it live on request. Use when an agent needs to test a feature, interaction, menu flow, or gameplay logic in the running game, see a room or level, compare renders before and after a change, or the user asks to play, try out, or record it.
+description: Play the Dungeon game on Linux through a virtual display, out of the user's sight and hearing, or in a real window on the user's desktop when they ask for one: send keys and clicks, take screenshots, record video, show it live on request. Use when an agent needs to test a feature, interaction, menu flow, or gameplay logic in the running game, see a room or level, compare renders before and after a change, or the user asks to play, try out, or record it.
 ---
 
 # Play Dungeon on a virtual display
@@ -20,6 +20,20 @@ dungeon-play start runMushRoom                 # the game as it launches (menu o
 ```
 
 `start` returns once the game renders; `mp` returns once every hero is in the game, in any menu language and with a room's own host label. On failure both print the log tail and stop what they started. Both take the first free display from :100 on (other agents use this machine too) and print it, `mp` one per player; pass `DUNGEON_PLAY_DISPLAY=<display>` to every later command. A display belongs to the checkout that started its game: every command from another checkout, `stop` included, fails and names the owner, and `dungeon-play --force <command>` runs it anyway. Each display gets its own network port (50000 + display number). Starts from the same checkout build one after another, then load in parallel. A room offers only as many players as it has characters (GameOfGames: two); rooms without Join Game (SystemRecovery) run the host only.
+
+**In a real window on the user's desktop**, when the user asks to see the game itself in a window: put `DUNGEON_PLAY_DESKTOP=1` in front of `start` or `mp`.
+
+```bash
+DUNGEON_PLAY_DESKTOP=1 dungeon-play mp runGameOfGames -
+```
+
+The game opens as an ordinary window titled `… [dungeon-play :100, driven by an agent]`, placed and sized by the window manager; it may take the keyboard focus as it appears. The number is its `DUNGEON_PLAY_DISPLAY` for every later command, as with a virtual display. Input goes into the game process: it needs no focus and leaves the user's mouse alone, though the user's own mouse and keys reach the window too. The world always draws.
+
+- The start needs the desktop session's `WAYLAND_DISPLAY` or `DISPLAY`, and `XDG_RUNTIME_DIR`. A shell without them (Codex) sets them first, e.g. `XDG_RUNTIME_DIR=/run/user/$(id -u) WAYLAND_DISPLAY=wayland-1 DISPLAY=:0`.
+- `key` takes libGDX key names (`E`, `Escape`, `Enter`, `Space`, `Left`, `F4`, `L-Shift`, `Page_Up`; case does not matter, `_` stands for a space) instead of X keysyms, one key per call.
+- The window manager resizes the window when others open or close, so take pixel coordinates from a fresh `state` or `shot` right before a `click` or `drag`. On an output scaled other than 1, screenshot pixels and click coordinates may differ (not verified).
+- `view` refuses, since the game already is a window. `shot` and `record` paths must not contain `|`, `?` or control characters.
+- When the user closes the window, run `stop` for its display.
 
 ## 2. Play: state → act → state
 
@@ -48,7 +62,7 @@ Done when every behaviour under test has been observed: name what showed it, a s
 
 **Multiplayer**: `state`, `tp`, `goto`, `interact` and the setup commands on a joined client talk to its server automatically. A dedicated server starts with `dungeon-play server run<Room>Server`; clients joining by hand need `DUNGEON_PLAY_PORT=<host port>` on `start`.
 
-**Logs**: `dungeon-play log` filters out ALSA, LWJGL and handshake noise. If the game dies, the next command fails and prints the log tail.
+**Logs**: `dungeon-play log` filters out ALSA, LWJGL and handshake noise. If the game dies, the next command fails and prints the log tail; its display number stays taken until `stop` has run for it.
 
 ## 3. Record and show
 
